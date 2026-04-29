@@ -334,6 +334,7 @@
       <div class="periodo-bar">
         <h1>Prestadores <span>Cadastro</span></h1>
         <div class="periodo-info">
+          <button class="dl-btn" onclick="abrirModalConvite()" style="margin-right:4px;">✉ Convidar usuário</button>
           <button class="dl-btn btn-primary" onclick="abrirModal()">+ Novo prestador</button>
         </div>
       </div>
@@ -927,6 +928,94 @@ function proximoMes(periodoFim) {
   d.setMonth(d.getMonth() + 2);
   return d.toLocaleDateString('pt-BR', { month: 'short', year: 'numeric' });
 }
+</script>
+<!-- MODAL CONVITE -->
+<div id="modal-convite" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:1000;align-items:center;justify-content:center;">
+  <div style="background:var(--bg2);border:1px solid var(--border2);border-radius:16px;width:440px;padding:32px;position:relative;">
+    <button onclick="fecharModalConvite()" style="position:absolute;top:16px;right:16px;background:none;border:none;color:var(--muted2);font-size:20px;cursor:pointer;">✕</button>
+    <div style="font-size:18px;font-weight:600;margin-bottom:4px;">Convidar usuário</div>
+    <div style="font-size:13px;color:var(--muted2);margin-bottom:24px;">O usuário receberá um e-mail com link de acesso</div>
+
+    <div class="form-label">Nome completo</div>
+    <input class="form-input" id="c-nome" placeholder="Nome do usuário" style="margin-bottom:16px;">
+
+    <div class="form-label">E-mail</div>
+    <input class="form-input" id="c-email" type="email" placeholder="usuario@efleet.digital" style="margin-bottom:16px;">
+
+    <div class="form-label">Perfil de acesso</div>
+    <select class="form-select" id="c-perfil" style="margin-bottom:24px;">
+      <option value="financeiro">Financeiro</option>
+      <option value="vendedor">Vendedor</option>
+      <option value="gestao">Gestão</option>
+    </select>
+
+    <div id="c-status" style="display:none;margin-bottom:16px;padding:12px;border-radius:8px;font-size:13px;"></div>
+
+    <div style="display:flex;gap:10px;justify-content:flex-end;">
+      <button class="logout-btn" onclick="fecharModalConvite()" style="padding:10px 20px;font-size:14px;">Cancelar</button>
+      <button class="login-btn" id="c-btn" style="width:auto;padding:10px 28px;font-size:14px;" onclick="enviarConvite()">Enviar convite</button>
+    </div>
+  </div>
+</div>
+
+<script>
+function abrirModalConvite() {
+  document.getElementById('c-nome').value = '';
+  document.getElementById('c-email').value = '';
+  document.getElementById('c-perfil').value = 'financeiro';
+  document.getElementById('c-status').style.display = 'none';
+  document.getElementById('modal-convite').style.display = 'flex';
+}
+
+function fecharModalConvite() {
+  document.getElementById('modal-convite').style.display = 'none';
+}
+
+async function enviarConvite() {
+  const nome   = document.getElementById('c-nome').value.trim();
+  const email  = document.getElementById('c-email').value.trim();
+  const perfil = document.getElementById('c-perfil').value;
+  const status = document.getElementById('c-status');
+  const btn    = document.getElementById('c-btn');
+
+  if (!nome || !email) { alert('Preencha nome e e-mail.'); return; }
+
+  btn.textContent = 'Enviando...'; btn.disabled = true;
+
+  try {
+    const { data: { session } } = await sb.auth.getSession();
+    const res = await fetch(
+      'https://zakxroemofwolqqkfyaz.supabase.co/functions/v1/smart-service',
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+          'apikey': 'sb_publishable_XqkLWf1GyJW9HqTJ1AxVkA_jCJ1rOky',
+        },
+        body: JSON.stringify({ nome, email, perfil }),
+      }
+    );
+    const result = await res.json();
+    if (result.error) throw new Error(result.error);
+
+    status.style.display = 'block';
+    status.style.background = 'var(--green-dim)';
+    status.style.color = 'var(--green)';
+    status.textContent = `✓ Convite enviado para ${email}`;
+    btn.textContent = 'Enviar convite'; btn.disabled = false;
+  } catch(e) {
+    status.style.display = 'block';
+    status.style.background = 'var(--red-dim)';
+    status.style.color = 'var(--red)';
+    status.textContent = `✗ Erro: ${e.message}`;
+    btn.textContent = 'Enviar convite'; btn.disabled = false;
+  }
+}
+
+document.getElementById('modal-convite').addEventListener('click', e => {
+  if (e.target === document.getElementById('modal-convite')) fecharModalConvite();
+});
 </script>
 </body>
 </html>

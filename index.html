@@ -171,6 +171,8 @@
   </div>
   <div id="nav-tabs">
     <button class="tab-btn active" id="nav-comissoes" onclick="switchNav('comissoes')">Comissões</button>
+    <button class="tab-btn" id="nav-arquivos" onclick="switchNav('arquivos')">Arquivos</button>
+    <button class="tab-btn" id="nav-checkpoints" onclick="switchNav('checkpoints')">Checkpoints</button>
     <button class="tab-btn" id="nav-prestadores" onclick="switchNav('prestadores')">Prestadores</button>
   </div>
   <div class="main">
@@ -182,6 +184,7 @@
         <div class="periodo-info">
           <label class="dl-btn btn-primary" for="file-upload" style="cursor:pointer;">⬆ Subir fechamento</label>
           <input type="file" id="file-upload" accept=".xlsx,.csv" style="display:none" onchange="processarUpload(this)">
+          <button class="dl-btn" style="background:var(--yellow-dim);color:var(--yellow);border-color:var(--yellow);" onclick="rodarCalculo()">▶ Rodar cálculo</button>
           <button class="dl-btn" onclick="exportarRelatorio()">⬇ Relatório</button>
         </div>
       </div>
@@ -274,7 +277,58 @@
       </div>
     </div>
 
-    <!-- PRESTADORES -->
+    <!-- ARQUIVOS -->
+    <div class="view" id="view-arquivos">
+      <div class="periodo-bar">
+        <h1>Arquivos <span>Histórico de uploads</span></h1>
+        <div class="periodo-info">
+          <label class="dl-btn btn-primary" for="file-upload-arq" style="cursor:pointer;">⬆ Subir fechamento</label>
+          <input type="file" id="file-upload-arq" accept=".xlsx,.csv" style="display:none" onchange="processarUpload(this)">
+        </div>
+      </div>
+      <div class="section">
+        <div class="section-header"><div><div class="section-title">Arquivos enviados</div><div class="section-sub">Clique em "Calcular" para processar um arquivo pendente</div></div></div>
+        <div class="table-wrap"><table>
+          <thead><tr><th>Arquivo</th><th>Período</th><th>Linhas</th><th>Status</th><th>Enviado em</th><th></th></tr></thead>
+          <tbody id="tbody-arquivos"><tr><td colspan="6" class="loading">Carregando...</td></tr></tbody>
+        </table></div>
+      </div>
+    </div>
+
+    <!-- CHECKPOINTS -->
+    <div class="view" id="view-checkpoints">
+      <div class="periodo-bar">
+        <h1>Checkpoints <span>Histórico de cálculos</span></h1>
+      </div>
+      <div class="section" id="checkpoint-lista">
+        <div class="section-header"><div><div class="section-title">Cálculos realizados</div><div class="section-sub">Clique em um checkpoint para ver o detalhamento</div></div></div>
+        <div class="table-wrap"><table>
+          <thead><tr><th>Período</th><th>Arquivo</th><th>Total linhas</th><th>✓ Calculadas</th><th>✗ Erros</th><th>Rodado em</th><th></th></tr></thead>
+          <tbody id="tbody-checkpoints"><tr><td colspan="7" class="loading">Carregando...</td></tr></tbody>
+        </table></div>
+      </div>
+      <div id="checkpoint-detalhe" style="display:none;">
+        <div class="periodo-bar" style="margin-top:8px;">
+          <h1 id="cp-titulo">Detalhamento</h1>
+          <div class="periodo-info">
+            <button class="dl-btn" onclick="fecharDetalheCheckpoint()">← Voltar</button>
+            <button class="dl-btn btn-primary" onclick="baixarCheckpoint()">⬇ Baixar Excel</button>
+          </div>
+        </div>
+        <div class="cards cards-3" style="margin-bottom:20px;">
+          <div class="card"><div class="card-label">Total de linhas</div><div class="card-value c-blue" id="cp-total">—</div></div>
+          <div class="card"><div class="card-label">Calculadas com sucesso</div><div class="card-value c-green" id="cp-ok">—</div></div>
+          <div class="card"><div class="card-label">Erros / Não calculadas</div><div class="card-value c-red" id="cp-err">—</div></div>
+        </div>
+        <div class="section">
+          <div class="section-header"><div><div class="section-title">Resultado linha a linha</div></div></div>
+          <div class="table-wrap"><table>
+            <thead><tr><th>Vendedor</th><th>Cliente</th><th>CNPJ</th><th>Produto</th><th>Mês curva</th><th>Ramp</th><th>Comissão</th><th>Status</th><th>Erro</th></tr></thead>
+            <tbody id="tbody-cp-detalhe"></tbody>
+          </table></div>
+        </div>
+      </div>
+    </div>
     <div class="view" id="view-prestadores">
       <div class="periodo-bar">
         <h1>Prestadores <span>Cadastro</span></h1>
@@ -666,7 +720,207 @@ function switchNav(tab){
   document.getElementById('nav-'+tab).classList.add('active');
   document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
   if(tab==='comissoes'){document.getElementById('view-gestao').classList.add('active');carregarGestao();}
+  else if(tab==='arquivos'){document.getElementById('view-arquivos').classList.add('active');carregarArquivos();}
+  else if(tab==='checkpoints'){document.getElementById('view-checkpoints').classList.add('active');carregarCheckpoints();}
   else{document.getElementById('view-prestadores').classList.add('active');carregarPrestadores();}
+}
+
+// ── RODAR CÁLCULO ─────────────────────────────────────────────────────────────
+async function rodarCalculo(){
+  const st=document.getElementById('upload-status');
+  st.className='status-box status-warn';st.style.display='block';
+  st.textContent='⏳ Verificando arquivos pendentes...';
+
+  // Busca uploads sem checkpoint
+  const{data:uploads}=await sb.from('uploads').select('*').eq('status','concluido').order('criado_em',{ascending:true});
+  const{data:cps}=await sb.from('checkpoints').select('upload_id');
+  const processados=new Set((cps||[]).map(c=>c.upload_id));
+  const pendentes=(uploads||[]).filter(u=>!processados.has(u.id));
+
+  if(!pendentes.length){
+    st.className='status-box status-ok';
+    st.textContent='✓ Nenhum arquivo pendente de cálculo.';
+    return;
+  }
+
+  let totalCalculadas=0,totalErros=0;
+  for(const upload of pendentes){
+    const resultado=await calcularCheckpoint(upload);
+    totalCalculadas+=resultado.calculadas;
+    totalErros+=resultado.nao_calculadas;
+  }
+
+  st.className='status-box status-ok';
+  st.textContent=`✓ Cálculo concluído — ${totalCalculadas} comissões calculadas · ${totalErros} erros · Veja a aba Checkpoints`;
+  await carregarGestao();
+}
+
+async function calcularCheckpoint(upload){
+  // Busca fechamentos do upload
+  const{data:fechamentos}=await sb.from('fechamentos').select('*').eq('upload_id',upload.id);
+  const{data:prestadores}=await sb.from('prestadores').select('id,nome').eq('ativo',true);
+  const prestMap={};(prestadores||[]).forEach(p=>prestMap[p.nome.trim().toLowerCase()]=p.id);
+
+  const detalhes=[];let calculadas=0,erros=0;
+
+  for(const f of (fechamentos||[])){
+    const produtos=[
+      {produto:'FUEL',ativacao:f.ativacao_fuel,receita:f.receita_fuel,taxa:0.20},
+      {produto:'PASS',ativacao:f.ativacao_pass,receita:f.receita_pass,taxa:0.07},
+      {produto:'FINES',ativacao:f.ativacao_fines,receita:f.receita_fines,taxa:0.07},
+      {produto:'PREMIUM',ativacao:f.ativacao_premium,receita:f.receita_premium,taxa:0.07},
+    ];
+
+    const pid=prestMap[f.vendedor_nome.trim().toLowerCase()];
+
+    for(const p of produtos){
+      if(!p.ativacao||!p.receita)continue;
+      if(!pid){
+        detalhes.push({vendedor_nome:f.vendedor_nome,cliente_cnpj:f.cliente_cnpj,cliente_nome:f.cliente_nome,produto:p.produto,mes_curva:null,fator_ramp:null,comissao:0,status:'erro',erro:'Prestador não encontrado no cadastro'});
+        erros++;continue;
+      }
+      // Calcula mês curva
+      const atDate=new Date(p.ativacao+'T12:00:00');
+      const fimDate=new Date(f.periodo_fim+'T12:00:00');
+      const mes=((fimDate.getFullYear()-atDate.getFullYear())*12+(fimDate.getMonth()-atDate.getMonth()))+1;
+      let fator=0;
+      if(mes===1)fator=0.2;else if(mes===2)fator=0.4;else if(mes===3)fator=0.6;else if(mes>=4&&mes<=6)fator=0.8;else if(mes>=7&&mes<=12)fator=1.0;
+      if(fator===0&&mes>0){detalhes.push({vendedor_nome:f.vendedor_nome,cliente_cnpj:f.cliente_cnpj,cliente_nome:f.cliente_nome,produto:p.produto,mes_curva:mes,fator_ramp:fator,comissao:0,status:'erro',erro:`Mês ${mes} fora da janela de 12 meses`});erros++;continue;}
+      const comissao=parseFloat(p.receita)*p.taxa*fator;
+      const statusCom=f.status_cliente==='churn'?'zerada':f.status_cliente==='inadimplente'?'suspensa':'calculada';
+      detalhes.push({vendedor_nome:f.vendedor_nome,cliente_cnpj:f.cliente_cnpj,cliente_nome:f.cliente_nome,produto:p.produto,mes_curva:mes,fator_ramp:fator,comissao:statusCom==='calculada'?comissao:0,status:statusCom,erro:null});
+      if(statusCom==='calculada')calculadas++;else erros++;
+    }
+  }
+
+  // Salva checkpoint
+  await sb.from('checkpoints').insert({
+    upload_id:upload.id,periodo_inicio:upload.periodo_inicio,periodo_fim:upload.periodo_fim,
+    total_linhas:detalhes.length,calculadas,nao_calculadas:erros,
+    detalhes:JSON.stringify(detalhes),criado_por:currentUser.id
+  });
+
+  return{calculadas,nao_calculadas:erros};
+}
+
+// ── ARQUIVOS ──────────────────────────────────────────────────────────────────
+async function carregarArquivos(){
+  const{data}=await sb.from('uploads').select('*').order('criado_em',{ascending:false});
+  const{data:cps}=await sb.from('checkpoints').select('upload_id');
+  const processados=new Set((cps||[]).map(c=>c.upload_id));
+  if(!data||!data.length){document.getElementById('tbody-arquivos').innerHTML='<tr><td colspan="6" class="loading">Nenhum arquivo enviado.</td></tr>';return;}
+  document.getElementById('tbody-arquivos').innerHTML=data.map(u=>{
+    const calc=processados.has(u.id);
+    const statusBadge=calc?'badge-green':'badge-yellow';
+    const statusLabel=calc?'Calculado':'Pendente';
+    return`<tr>
+      <td><strong style="color:var(--white)">${u.nome_arquivo}</strong></td>
+      <td class="td-muted">${formatPeriodo(u.periodo_inicio,u.periodo_fim)}</td>
+      <td class="mono">${u.total_linhas}</td>
+      <td><span class="badge ${statusBadge}">${statusLabel}</span></td>
+      <td class="td-muted">${new Date(u.criado_em).toLocaleDateString('pt-BR')}</td>
+      <td style="display:flex;gap:6px;">
+        ${!calc?`<button class="dl-btn" style="padding:4px 10px;font-size:12px;color:var(--yellow);border-color:var(--yellow);" onclick="calcularArquivo('${u.id}')">▶ Calcular</button>`:''}
+        <button class="dl-btn btn-danger" style="padding:4px 10px;font-size:12px;" onclick="excluirArquivo('${u.id}','${u.nome_arquivo}')">✕ Excluir</button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+async function calcularArquivo(uploadId){
+  const{data:upload}=await sb.from('uploads').select('*').eq('id',uploadId).single();
+  if(!upload)return;
+  const st=document.getElementById('upload-status');
+  st.className='status-box status-warn';st.style.display='block';
+  st.textContent=`⏳ Calculando ${upload.nome_arquivo}...`;
+  const r=await calcularCheckpoint(upload);
+  st.className='status-box status-ok';
+  st.textContent=`✓ Concluído — ${r.calculadas} calculadas · ${r.nao_calculadas} erros`;
+  await carregarArquivos();
+}
+
+async function excluirArquivo(uploadId,nome){
+  if(!confirm(`Excluir "${nome}"? Isso remove todos os fechamentos e comissões vinculados.`))return;
+  await sb.from('uploads').delete().eq('id',uploadId);
+  await carregarArquivos();
+  await carregarGestao();
+}
+
+// ── CHECKPOINTS ───────────────────────────────────────────────────────────────
+let cpAtual=null;
+
+async function carregarCheckpoints(){
+  document.getElementById('checkpoint-lista').style.display='block';
+  document.getElementById('checkpoint-detalhe').style.display='none';
+  const{data}=await sb.from('checkpoints').select('*,uploads(nome_arquivo)').order('criado_em',{ascending:false});
+  if(!data||!data.length){document.getElementById('tbody-checkpoints').innerHTML='<tr><td colspan="7" class="loading">Nenhum checkpoint gerado ainda.</td></tr>';return;}
+  document.getElementById('tbody-checkpoints').innerHTML=data.map(c=>`<tr>
+    <td class="td-muted">${formatPeriodo(c.periodo_inicio,c.periodo_fim)}</td>
+    <td><strong style="color:var(--white)">${c.uploads?.nome_arquivo||'—'}</strong></td>
+    <td class="mono">${c.total_linhas}</td>
+    <td class="td-green">${c.calculadas}</td>
+    <td class="${c.nao_calculadas>0?'td-red td-yellow':''}">${c.nao_calculadas}</td>
+    <td class="td-muted">${new Date(c.criado_em).toLocaleString('pt-BR')}</td>
+    <td><button class="dl-btn" style="padding:4px 10px;font-size:12px;" onclick="abrirDetalheCheckpoint('${c.id}')">Ver detalhes</button></td>
+  </tr>`).join('');
+}
+
+async function abrirDetalheCheckpoint(cpId){
+  const{data:cp}=await sb.from('checkpoints').select('*,uploads(nome_arquivo)').eq('id',cpId).single();
+  if(!cp)return;
+  cpAtual=cp;
+  document.getElementById('checkpoint-lista').style.display='none';
+  document.getElementById('checkpoint-detalhe').style.display='block';
+  document.getElementById('cp-titulo').textContent=`${cp.uploads?.nome_arquivo||'—'} · ${formatPeriodo(cp.periodo_inicio,cp.periodo_fim)}`;
+  document.getElementById('cp-total').textContent=cp.total_linhas;
+  document.getElementById('cp-ok').textContent=cp.calculadas;
+  document.getElementById('cp-err').textContent=cp.nao_calculadas;
+  const det=typeof cp.detalhes==='string'?JSON.parse(cp.detalhes):cp.detalhes;
+  document.getElementById('tbody-cp-detalhe').innerHTML=det.map(d=>{
+    const pct=d.fator_ramp!=null?Math.round(d.fator_ramp*100):null;
+    const stBadge=d.status==='calculada'?'badge-green':d.status==='suspensa'?'badge-yellow':d.status==='zerada'?'badge-blue':'badge-red';
+    return`<tr>
+      <td>${d.vendedor_nome}</td>
+      <td><strong style="color:var(--white)">${d.cliente_nome}</strong></td>
+      <td class="mono td-muted">${d.cliente_cnpj}</td>
+      <td><span class="badge ${d.produto==='FUEL'?'badge-blue':'badge-green'}">${d.produto}</span></td>
+      <td class="mono">${d.mes_curva!=null?d.mes_curva+'/12':'—'}</td>
+      <td>${pct!=null?`<div class="ramp-bar"><div class="ramp-track"><div class="ramp-fill ${pct<100?'partial':''}" style="width:${pct}%"></div></div><div class="ramp-label">${pct}%</div></div>`:'—'}</td>
+      <td class="${d.status==='calculada'?'td-green':'td-muted'}">${fmtR(d.comissao)}</td>
+      <td><span class="badge ${stBadge}">${d.status}</span></td>
+      <td style="color:var(--red);font-size:12px;max-width:200px;white-space:normal;">${d.erro||'—'}</td>
+    </tr>`;
+  }).join('');
+}
+
+function fecharDetalheCheckpoint(){
+  document.getElementById('checkpoint-lista').style.display='block';
+  document.getElementById('checkpoint-detalhe').style.display='none';
+  cpAtual=null;
+}
+
+async function baixarCheckpoint(){
+  if(!cpAtual)return;
+  const det=typeof cpAtual.detalhes==='string'?JSON.parse(cpAtual.detalhes):cpAtual.detalhes;
+  const wb=XLSX.utils.book_new();
+  // Cabeçalho
+  const cabRows=[
+    ['Arquivo',cpAtual.uploads?.nome_arquivo||'—'],
+    ['Período',formatPeriodo(cpAtual.periodo_inicio,cpAtual.periodo_fim)],
+    ['Total de linhas',cpAtual.total_linhas],
+    ['Calculadas',cpAtual.calculadas],
+    ['Erros',cpAtual.nao_calculadas],
+    ['Gerado em',new Date(cpAtual.criado_em).toLocaleString('pt-BR')],
+    [],
+  ];
+  const detRows=[
+    ['Vendedor','Cliente','CNPJ','Produto','Mês curva','Fator ramp','Comissão','Status','Erro'],
+    ...det.map(d=>[d.vendedor_nome,d.cliente_nome,d.cliente_cnpj,d.produto,d.mes_curva,d.fator_ramp,d.comissao,d.status,d.erro||''])
+  ];
+  const ws=XLSX.utils.aoa_to_sheet([...cabRows,...detRows]);
+  ws['!cols']=[{wch:20},{wch:25},{wch:22},{wch:10},{wch:10},{wch:12},{wch:14},{wch:12},{wch:35}];
+  XLSX.utils.book_append_sheet(wb,ws,'Checkpoint');
+  XLSX.writeFile(wb,`checkpoint_${cpAtual.periodo_fim}.xlsx`);
 }
 function switchTab(btn,tabId){btn.closest('.section').querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));btn.classList.add('active');btn.closest('.section').querySelectorAll('.tab-content').forEach(t=>t.classList.remove('active'));document.getElementById(tabId).classList.add('active');}
 

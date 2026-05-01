@@ -125,6 +125,9 @@
   .validacao-card.aprovado{border-color:rgba(92,200,120,.4);background:rgba(92,200,120,.06);}
   .validacao-card.contestado{border-color:rgba(232,69,42,.4);background:rgba(232,69,42,.06);}
   .loading{padding:40px;text-align:center;color:var(--muted2);font-size:13px;}
+  .periodo-opt{padding:9px 16px;font-size:13px;color:var(--text);cursor:pointer;transition:background .15s;}
+  .periodo-opt:hover{background:rgba(92,200,120,.08);color:var(--green);}
+  .periodo-opt.active{color:var(--green);font-weight:600;}
   @media(max-width:768px){.cards-4,.cards-3{grid-template-columns:repeat(2,1fr);}.main{padding:16px;}.topbar{padding:0 16px;}.modal-box{width:95vw;padding:24px;}}
 </style>
 </head>
@@ -180,7 +183,28 @@
     <!-- GESTÃO/FINANCEIRO -->
     <div class="view" id="view-gestao">
       <div class="periodo-bar">
-        <h1>Dashboard <span id="g-periodo">—</span></h1>
+        <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+          <h1>Dashboard <span id="g-titulo-parceiro" style="color:var(--green);font-weight:600;font-size:18px;"></span></h1>
+          <!-- Filtro de período -->
+          <div style="position:relative;">
+            <button class="dl-btn" id="btn-periodo" onclick="togglePeriodoMenu()" style="gap:8px;">
+              <span id="periodo-label">12 meses anteriores</span> ▾
+            </button>
+            <div id="periodo-menu" style="display:none;position:absolute;top:calc(100% + 6px);left:0;background:var(--bg2);border:1px solid var(--border2);border-radius:10px;min-width:200px;z-index:200;overflow:hidden;box-shadow:0 8px 24px rgba(0,0,0,0.4);">
+              <div style="padding:8px 0;">
+                <div class="periodo-opt" onclick="setPeriodo('mes_atual','Mês atual')">Mês atual</div>
+                <div class="periodo-opt" onclick="setPeriodo('mes_anterior','Mês anterior')">Mês anterior</div>
+                <div style="height:1px;background:var(--border);margin:4px 0;"></div>
+                <div class="periodo-opt" onclick="setPeriodo('3m','3 meses anteriores')">3 meses anteriores</div>
+                <div class="periodo-opt" onclick="setPeriodo('6m','6 meses anteriores')">6 meses anteriores</div>
+                <div class="periodo-opt" onclick="setPeriodo('12m','12 meses anteriores')">12 meses anteriores</div>
+                <div style="height:1px;background:var(--border);margin:4px 0;"></div>
+                <div class="periodo-opt" onclick="setPeriodo('ano_atual','Ano atual')">Ano atual</div>
+                <div class="periodo-opt" onclick="setPeriodo('tudo','Todo o histórico')">Todo o histórico</div>
+              </div>
+            </div>
+          </div>
+        </div>
         <div class="periodo-info">
           <label class="dl-btn btn-primary" for="file-upload" style="cursor:pointer;">⬆ Subir fechamento</label>
           <input type="file" id="file-upload" accept=".xlsx,.csv" style="display:none" onchange="processarUpload(this)">
@@ -225,9 +249,9 @@
       </div>
       <div class="section">
         <div class="section-header">
-          <div><div class="section-title">Extrato por parceiro</div><div class="section-sub">Selecione um parceiro para ver o detalhamento</div></div>
-          <select class="form-select" id="select-parceiro" style="width:240px;" onchange="carregarExtratoParceiro()">
-            <option value="">Selecionar parceiro...</option>
+          <div><div class="section-title">Extrato por parceiro</div><div class="section-sub">Selecione um parceiro para filtrar o dashboard</div></div>
+          <select class="form-select" id="select-parceiro" style="width:240px;" onchange="filtrarPorParceiro()">
+            <option value="">Todos os parceiros</option>
           </select>
         </div>
         <div id="extrato-parceiro-content"><div class="loading">Selecione um parceiro acima</div></div>
@@ -420,6 +444,16 @@ const{createClient}=supabase;
 const sb=createClient('https://zakxroemofwolqqkfyaz.supabase.co','sb_publishable_XqkLWf1GyJW9HqTJ1AxVkA_jCJ1rOky');
 let currentUser=null,currentPerfil=null,currentPrestadorId=null,currentValidacaoId=null;
 
+// Verifica sessão existente ao carregar
+(async()=>{
+  const{data:{session}}=await sb.auth.getSession();
+  if(session){
+    currentUser=session.user;
+    const{data:usuario}=await sb.from('usuarios').select('*').eq('id',session.user.id).single();
+    if(usuario){currentPerfil=usuario.perfil;await setupApp(usuario);}
+  }
+})();
+
 async function doLogin(){
   const perfil=document.getElementById('perfil-select').value;
   const email=document.getElementById('email-input').value.trim();
@@ -474,7 +508,54 @@ async function setupApp(usuario){
 }
 
 async function carregarGestao(){
-  const{data:resumos}=await sb.from('vw_resumo_prestador').select('*').order('periodo_fim',{ascending:false});
+  const{ini,fim}=getPeriodoDates(periodoAtual);
+  const{data:resumos}=await sb.from('vw_resumo_prestador').select('*')
+    .gte('periodo_fim',fmtDate(ini)).lte('periodo_fim',fmtDate(fim))
+    .order('periodo_fim',{ascending:false});
+  if(!resumos||!resumos.length){
+    document.getElementById('tbody-parceiros').innerHTML='<tr><td colspan="7" class="loading">Nenhum dado no período selecionado.</td></tr>';
+    document.getElementById('g-total').textContent='R$ 0';
+    document.getElementById('g-sub1').textContent='—';
+    document.getElementById('g-ativas').textContent='0';
+    document.getElementById('g-suspensas').textContent='R$ 0';
+    await carregarValidacoesGestao();await carregarSelectParceiros();return;
+  }
+  const tp=resumos.reduce((s,r)=>s+parseFloat(r.comissao_total||0),0);
+  const ts=resumos.reduce((s,r)=>s+parseFloat(r.comissao_suspensa||0),0);
+  const ta=resumos.reduce((s,r)=>s+parseInt(r.clientes_ativos||0),0);
+  const enc=resumos.reduce((s,r)=>s+parseInt(r.clientes_encerrando||0),0);
+  const inadimp=resumos.reduce((s,r)=>s+parseInt(r.clientes_inadimplentes||0),0);
+  // Agrupa por parceiro
+  const porParceiro={};
+  resumos.forEach(r=>{
+    if(!porParceiro[r.prestador_id])porParceiro[r.prestador_id]={nome:r.prestador_nome,fuel:0,mens:0,total:0,susp:0,clis:0};
+    porParceiro[r.prestador_id].fuel+=parseFloat(r.comissao_fuel||0);
+    porParceiro[r.prestador_id].mens+=parseFloat(r.comissao_mensalidades||0);
+    porParceiro[r.prestador_id].total+=parseFloat(r.comissao_total||0);
+    porParceiro[r.prestador_id].susp+=parseFloat(r.comissao_suspensa||0);
+    porParceiro[r.prestador_id].clis+=parseInt(r.clientes_ativos||0);
+  });
+  document.getElementById('g-total').textContent=fmtR(tp);
+  document.getElementById('g-sub1').textContent=`${Object.keys(porParceiro).length} parceiros`;
+  document.getElementById('g-ativas').textContent=ta;
+  document.getElementById('g-suspensas').textContent=fmtR(ts);
+  if(inadimp>0||enc>0){const ab=document.getElementById('g-alerts');ab.style.display='flex';const al=[];if(inadimp>0)al.push(`⚠ ${inadimp} inadimplente(s)`);if(enc>0)al.push(`⚠ ${enc} encerrando`);ab.textContent=al.join(' · ');}
+  document.getElementById('tbody-parceiros').innerHTML=Object.entries(porParceiro).map(([pid,p])=>`<tr>
+    <td><strong style="color:var(--white)">${p.nome}</strong></td>
+    <td class="mono">${p.clis}</td>
+    <td class="td-green">${fmtR(p.fuel)}</td>
+    <td class="td-green">${fmtR(p.mens)}</td>
+    <td class="td-green">${fmtR(p.total)}</td>
+    <td class="${p.susp>0?'td-yellow':'td-muted'}">${fmtR(p.susp)}</td>
+    <td><span class="badge ${p.susp>0?'badge-yellow':'badge-green'}">${p.susp>0?'suspensa':'✓ Ok'}</span></td>
+  </tr>`).join('');
+  // Tabela clientes — último período
+  const ultimo=resumos[0].periodo_fim;
+  await carregarTabelaClientes(ultimo);
+  await carregarValidacoesGestao();
+  await carregarSelectParceiros();
+  document.getElementById('alertas-content').innerHTML=buildAlertasHTML(inadimp,enc);
+}
   if(!resumos||!resumos.length){
     document.getElementById('tbody-parceiros').innerHTML='<tr><td colspan="7" class="loading">Nenhum dado. Suba um arquivo de fechamento.</td></tr>';
     document.getElementById('g-total').textContent='R$ 0';
@@ -536,29 +617,30 @@ async function carregarSelectParceiros(){
   const{data}=await sb.from('prestadores').select('id,nome').eq('ativo',true).order('nome');
   const sel=document.getElementById('select-parceiro');
   if(!data)return;
-  sel.innerHTML='<option value="">Selecionar parceiro...</option>'+data.map(p=>`<option value="${p.id}">${p.nome}</option>`).join('');
+  sel.innerHTML='<option value="">Todos os parceiros</option>'+data.map(p=>`<option value="${p.id}">${p.nome}</option>`).join('');
 }
 
-async function carregarExtratoParceiro(){
-  const pid=document.getElementById('select-parceiro').value;
+async function carregarExtratoParceiro(pid){
+  if(!pid)pid=document.getElementById('select-parceiro').value;
   const ct=document.getElementById('extrato-parceiro-content');
   if(!pid){ct.innerHTML='<div class="loading">Selecione um parceiro acima</div>';return;}
   ct.innerHTML='<div class="loading">Carregando...</div>';
-  const{data}=await sb.from('vw_extrato_prestador').select('*').eq('prestador_id',pid).order('periodo_fim',{ascending:false});
+  const{ini,fim}=getPeriodoDates(periodoAtual);
+  const{data}=await sb.from('vw_extrato_prestador').select('*').eq('prestador_id',pid)
+    .gte('periodo_fim',fmtDate(ini)).lte('periodo_fim',fmtDate(fim))
+    .order('periodo_fim',{ascending:false});
   const{data:acum}=await sb.from('vw_acumulado_prestador').select('*').eq('prestador_id',pid).single();
-  if(!data||!data.length){ct.innerHTML='<div class="loading">Nenhum dado.</div>';return;}
-  const ult=data[0].periodo_fim;
-  const recs=data.filter(d=>d.periodo_fim===ult);
-  const tf=recs.filter(d=>d.produto==='FUEL'&&d.status==='calculada').reduce((s,d)=>s+parseFloat(d.comissao_bruta||0),0);
-  const tm=recs.filter(d=>d.produto!=='FUEL'&&d.status==='calculada').reduce((s,d)=>s+parseFloat(d.comissao_bruta||0),0);
+  if(!data||!data.length){ct.innerHTML='<div class="loading">Nenhum dado no período.</div>';return;}
+  const tf=data.filter(d=>d.produto==='FUEL'&&d.status==='calculada').reduce((s,d)=>s+parseFloat(d.comissao_bruta||0),0);
+  const tm=data.filter(d=>d.produto!=='FUEL'&&d.status==='calculada').reduce((s,d)=>s+parseFloat(d.comissao_bruta||0),0);
   ct.innerHTML=`<div style="padding:16px 22px;border-bottom:1px solid var(--border);display:flex;gap:24px;flex-wrap:wrap;">
     <div><span style="font-size:11px;color:var(--muted);text-transform:uppercase;">FUEL</span><div style="font-size:18px;font-weight:700;color:var(--green);font-family:'DM Mono',monospace;">${fmtR(tf)}</div></div>
     <div><span style="font-size:11px;color:var(--muted);text-transform:uppercase;">Mensalidades</span><div style="font-size:18px;font-weight:700;color:var(--blue);font-family:'DM Mono',monospace;">${fmtR(tm)}</div></div>
-    <div><span style="font-size:11px;color:var(--muted);text-transform:uppercase;">Total</span><div style="font-size:18px;font-weight:700;color:var(--white);font-family:'DM Mono',monospace;">${fmtR(tf+tm)}</div></div>
-    <div><span style="font-size:11px;color:var(--muted);text-transform:uppercase;">Acumulado</span><div style="font-size:18px;font-weight:700;color:var(--yellow);font-family:'DM Mono',monospace;">${acum?fmtR(acum.comissao_acumulada):'—'}</div></div>
+    <div><span style="font-size:11px;color:var(--muted);text-transform:uppercase;">Total período</span><div style="font-size:18px;font-weight:700;color:var(--white);font-family:'DM Mono',monospace;">${fmtR(tf+tm)}</div></div>
+    <div><span style="font-size:11px;color:var(--muted);text-transform:uppercase;">Acumulado histórico</span><div style="font-size:18px;font-weight:700;color:var(--yellow);font-family:'DM Mono',monospace;">${acum?fmtR(acum.comissao_acumulada):'—'}</div></div>
   </div>
-  <div class="table-wrap"><table><thead><tr><th>Cliente</th><th>Produto</th><th>Mês</th><th>Ramp</th><th>Base</th><th>Comissão</th><th>Status</th></tr></thead>
-  <tbody>${recs.map(c=>{const pct=Math.round(parseFloat(c.fator_ramp)*100);const cs=c.status==='suspensa'?`<span class="td-yellow">Suspensa</span>`:`<span class="td-green">${fmtR(c.comissao_bruta)}</span>`;return`<tr><td><strong style="color:var(--white)">${c.cliente_nome}</strong></td><td><span class="badge ${c.produto==='FUEL'?'badge-blue':'badge-green'}">${c.produto}</span></td><td class="mono">${c.mes_curva}/12</td><td><div class="ramp-bar"><div class="ramp-track"><div class="ramp-fill ${pct<100?'partial':''}" style="width:${pct}%"></div></div><div class="ramp-label">${pct}%</div></div></td><td class="mono">${fmtR(c.base_calculo)}</td><td>${cs}</td><td><span class="badge ${c.status==='calculada'?'badge-green':'badge-yellow'}">${c.status}</span></td></tr>`;}).join('')}</tbody></table></div>`;
+  <div class="table-wrap"><table><thead><tr><th>Período</th><th>Cliente</th><th>Produto</th><th>Mês</th><th>Ramp</th><th>Base</th><th>Comissão</th><th>Status</th></tr></thead>
+  <tbody>${data.map(c=>{const pct=Math.round(parseFloat(c.fator_ramp)*100);const cs=c.status==='suspensa'?`<span class="td-yellow">Suspensa</span>`:`<span class="td-green">${fmtR(c.comissao_bruta)}</span>`;return`<tr><td class="td-muted mono">${formatPeriodo(c.periodo_inicio,c.periodo_fim)}</td><td><strong style="color:var(--white)">${c.cliente_nome}</strong></td><td><span class="badge ${c.produto==='FUEL'?'badge-blue':'badge-green'}">${c.produto}</span></td><td class="mono">${c.mes_curva}/12</td><td><div class="ramp-bar"><div class="ramp-track"><div class="ramp-fill ${pct<100?'partial':''}" style="width:${pct}%"></div></div><div class="ramp-label">${pct}%</div></div></td><td class="mono">${fmtR(c.base_calculo)}</td><td>${cs}</td><td><span class="badge ${c.status==='calculada'?'badge-green':'badge-yellow'}">${c.status}</span></td></tr>`;}).join('')}</tbody></table></div>`;
 }
 
 function notificarParceiro(id){alert('Em desenvolvimento: envia e-mail de notificação ao parceiro.');}
@@ -725,7 +807,89 @@ function switchNav(tab){
   else{document.getElementById('view-prestadores').classList.add('active');carregarPrestadores();}
 }
 
-// ── RODAR CÁLCULO ─────────────────────────────────────────────────────────────
+// ── FILTROS ───────────────────────────────────────────────────────────────────
+let periodoAtual = '12m';
+let parceiroFiltro = null; // { id, nome }
+
+function getPeriodoDates(tipo) {
+  const now = new Date();
+  const y = now.getFullYear(), m = now.getMonth();
+  switch(tipo) {
+    case 'mes_atual':    return { ini: new Date(y,m,1), fim: new Date(y,m+1,0) };
+    case 'mes_anterior': return { ini: new Date(y,m-1,1), fim: new Date(y,m,0) };
+    case '3m':           return { ini: new Date(y,m-3,1), fim: new Date(y,m+1,0) };
+    case '6m':           return { ini: new Date(y,m-6,1), fim: new Date(y,m+1,0) };
+    case '12m':          return { ini: new Date(y,m-12,1), fim: new Date(y,m+1,0) };
+    case 'ano_atual':    return { ini: new Date(y,0,1), fim: new Date(y,11,31) };
+    case 'tudo':         return { ini: new Date('2000-01-01'), fim: new Date('2099-12-31') };
+    default:             return { ini: new Date(y,m-12,1), fim: new Date(y,m+1,0) };
+  }
+}
+
+function fmtDate(d) { return d.toISOString().split('T')[0]; }
+
+function togglePeriodoMenu() {
+  const m = document.getElementById('periodo-menu');
+  m.style.display = m.style.display === 'none' ? 'block' : 'none';
+}
+
+function setPeriodo(tipo, label) {
+  periodoAtual = tipo;
+  document.getElementById('periodo-label').textContent = label;
+  document.getElementById('periodo-menu').style.display = 'none';
+  carregarGestao();
+}
+
+// Fecha menu ao clicar fora
+document.addEventListener('click', e => {
+  if (!document.getElementById('btn-periodo')?.contains(e.target)) {
+    const m = document.getElementById('periodo-menu');
+    if (m) m.style.display = 'none';
+  }
+});
+
+async function filtrarPorParceiro() {
+  const sel = document.getElementById('select-parceiro');
+  const pid = sel.value;
+  const pnome = pid ? sel.options[sel.selectedIndex].text : null;
+
+  parceiroFiltro = pid ? { id: pid, nome: pnome } : null;
+
+  // Atualiza título
+  const tituloEl = document.getElementById('g-titulo-parceiro');
+  tituloEl.textContent = pid ? `· ${pnome}` : '';
+
+  if (pid) {
+    await carregarExtratoParceiro(pid);
+    await atualizarCardsParParceiro(pid);
+  } else {
+    document.getElementById('extrato-parceiro-content').innerHTML = '<div class="loading">Selecione um parceiro acima</div>';
+    await carregarGestao();
+  }
+}
+
+async function atualizarCardsParParceiro(pid) {
+  const { ini, fim } = getPeriodoDates(periodoAtual);
+  const { data } = await sb.from('vw_resumo_prestador').select('*')
+    .eq('prestador_id', pid)
+    .gte('periodo_fim', fmtDate(ini))
+    .lte('periodo_fim', fmtDate(fim));
+
+  if (!data || !data.length) {
+    document.getElementById('g-total').textContent = 'R$ 0';
+    document.getElementById('g-sub1').textContent = '—';
+    document.getElementById('g-ativas').textContent = '0';
+    document.getElementById('g-suspensas').textContent = 'R$ 0';
+    return;
+  }
+  const tp = data.reduce((s,r)=>s+parseFloat(r.comissao_total||0),0);
+  const ts = data.reduce((s,r)=>s+parseFloat(r.comissao_suspensa||0),0);
+  const ta = data.reduce((s,r)=>s+parseInt(r.clientes_ativos||0),0);
+  document.getElementById('g-total').textContent = fmtR(tp);
+  document.getElementById('g-sub1').textContent = `${data.length} período(s)`;
+  document.getElementById('g-ativas').textContent = ta;
+  document.getElementById('g-suspensas').textContent = fmtR(ts);
+}
 async function rodarCalculo(){
   const st=document.getElementById('upload-status');
   st.className='status-box status-warn';st.style.display='block';

@@ -556,40 +556,6 @@ async function carregarGestao(){
   await carregarSelectParceiros();
   document.getElementById('alertas-content').innerHTML=buildAlertasHTML(inadimp,enc);
 }
-  if(!resumos||!resumos.length){
-    document.getElementById('tbody-parceiros').innerHTML='<tr><td colspan="7" class="loading">Nenhum dado. Suba um arquivo de fechamento.</td></tr>';
-    document.getElementById('g-total').textContent='R$ 0';
-    document.getElementById('g-ativas').textContent='0';
-    document.getElementById('g-suspensas').textContent='R$ 0';
-    await carregarValidacoesGestao();await carregarSelectParceiros();return;
-  }
-  const ultimo=resumos[0].periodo_fim;
-  const rec=resumos.filter(r=>r.periodo_fim===ultimo);
-  document.getElementById('g-periodo').textContent=formatPeriodo(rec[0].periodo_inicio,ultimo);
-  const tp=rec.reduce((s,r)=>s+parseFloat(r.comissao_total||0),0);
-  const ts=rec.reduce((s,r)=>s+parseFloat(r.comissao_suspensa||0),0);
-  const ta=rec.reduce((s,r)=>s+parseInt(r.clientes_ativos||0),0);
-  const enc=rec.reduce((s,r)=>s+parseInt(r.clientes_encerrando||0),0);
-  const inadimp=rec.reduce((s,r)=>s+parseInt(r.clientes_inadimplentes||0),0);
-  document.getElementById('g-total').textContent=fmtR(tp);
-  document.getElementById('g-sub1').textContent=`${rec.length} parceiros`;
-  document.getElementById('g-ativas').textContent=ta;
-  document.getElementById('g-suspensas').textContent=fmtR(ts);
-  if(inadimp>0||enc>0){const ab=document.getElementById('g-alerts');ab.style.display='flex';const al=[];if(inadimp>0)al.push(`⚠ ${inadimp} inadimplente(s)`);if(enc>0)al.push(`⚠ ${enc} encerrando`);ab.textContent=al.join(' · ');}
-  document.getElementById('tbody-parceiros').innerHTML=rec.map(r=>`<tr>
-    <td><strong style="color:var(--white)">${r.prestador_nome}</strong></td>
-    <td class="mono">${r.clientes_ativos}</td>
-    <td class="td-green">${fmtR(r.comissao_fuel)}</td>
-    <td class="td-green">${fmtR(r.comissao_mensalidades)}</td>
-    <td class="td-green">${fmtR(r.comissao_total)}</td>
-    <td class="${parseFloat(r.comissao_suspensa)>0?'td-yellow':'td-muted'}">${fmtR(r.comissao_suspensa)}</td>
-    <td><span class="badge ${parseFloat(r.comissao_suspensa)>0?'badge-yellow':'badge-green'}">${parseFloat(r.comissao_suspensa)>0?'suspensa':'✓ Ok'}</span></td>
-  </tr>`).join('');
-  await carregarTabelaClientes(ultimo);
-  await carregarValidacoesGestao();
-  await carregarSelectParceiros();
-  document.getElementById('alertas-content').innerHTML=buildAlertasHTML(inadimp,enc);
-}
 
 async function carregarTabelaClientes(pFim){
   const{data}=await sb.from('vw_extrato_prestador').select('*,prestadores(nome)').eq('periodo_fim',pFim).order('cliente_nome');

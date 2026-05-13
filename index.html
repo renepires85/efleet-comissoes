@@ -185,19 +185,18 @@
       <div class="periodo-bar">
         <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
           <h1>Dashboard <span id="g-titulo-parceiro" style="color:var(--green);font-weight:600;font-size:18px;"></span></h1>
-          <!-- Filtro de período -->
           <div style="position:relative;">
             <button class="dl-btn" id="btn-periodo" onclick="togglePeriodoMenu()" style="gap:8px;">
-              <span id="periodo-label">12 meses anteriores</span> ▾
+              <span id="periodo-label">Último mês</span> ▾
             </button>
             <div id="periodo-menu" style="display:none;position:absolute;top:calc(100% + 6px);left:0;background:var(--bg2);border:1px solid var(--border2);border-radius:10px;min-width:200px;z-index:200;overflow:hidden;box-shadow:0 8px 24px rgba(0,0,0,0.4);">
               <div style="padding:8px 0;">
                 <div class="periodo-opt" onclick="setPeriodo('mes_atual','Mês atual')">Mês atual</div>
-                <div class="periodo-opt" onclick="setPeriodo('mes_anterior','Mês anterior')">Mês anterior</div>
+                <div class="periodo-opt active" onclick="setPeriodo('ultimo_mes','Último mês')">Último mês</div>
                 <div style="height:1px;background:var(--border);margin:4px 0;"></div>
-                <div class="periodo-opt" onclick="setPeriodo('3m','3 meses anteriores')">3 meses anteriores</div>
-                <div class="periodo-opt" onclick="setPeriodo('6m','6 meses anteriores')">6 meses anteriores</div>
-                <div class="periodo-opt" onclick="setPeriodo('12m','12 meses anteriores')">12 meses anteriores</div>
+                <div class="periodo-opt" onclick="setPeriodo('3m','3 meses')">3 meses</div>
+                <div class="periodo-opt" onclick="setPeriodo('6m','6 meses')">6 meses</div>
+                <div class="periodo-opt" onclick="setPeriodo('12m','12 meses')">12 meses</div>
                 <div style="height:1px;background:var(--border);margin:4px 0;"></div>
                 <div class="periodo-opt" onclick="setPeriodo('ano_atual','Ano atual')">Ano atual</div>
                 <div class="periodo-opt" onclick="setPeriodo('tudo','Todo o histórico')">Todo o histórico</div>
@@ -229,8 +228,8 @@
         </div>
         <div class="tab-content active" id="tab-parceiros">
           <div class="table-wrap"><table>
-            <thead><tr><th>Parceiro</th><th>Clientes</th><th>FUEL</th><th>Mensalidades</th><th>Total</th><th>Suspenso</th><th>Validação</th></tr></thead>
-            <tbody id="tbody-parceiros"><tr><td colspan="7" class="loading">Carregando...</td></tr></tbody>
+            <thead><tr><th>Parceiro</th><th>Clientes</th><th>FUEL</th><th>Mensalidades</th><th>Total</th><th>Suspenso</th><th>Validação</th><th></th></tr></thead>
+            <tbody id="tbody-parceiros"><tr><td colspan="8" class="loading">Carregando...</td></tr></tbody>
           </table></div>
         </div>
         <div class="tab-content" id="tab-clientes">
@@ -249,7 +248,7 @@
       </div>
       <div class="section">
         <div class="section-header">
-          <div><div class="section-title">Extrato por parceiro</div><div class="section-sub">Selecione um parceiro para filtrar o dashboard</div></div>
+          <div><div class="section-title">Extrato por parceiro</div><div class="section-sub">Selecione um parceiro para ver o detalhamento</div></div>
           <select class="form-select" id="select-parceiro" style="width:240px;" onchange="filtrarPorParceiro()">
             <option value="">Todos os parceiros</option>
           </select>
@@ -310,6 +309,7 @@
           <input type="file" id="file-upload-arq" accept=".xlsx,.csv" style="display:none" onchange="processarUpload(this)">
         </div>
       </div>
+      <div id="upload-status-arq" class="status-box"></div>
       <div class="section">
         <div class="section-header"><div><div class="section-title">Arquivos enviados</div><div class="section-sub">Clique em "Calcular" para processar um arquivo pendente</div></div></div>
         <div class="table-wrap"><table>
@@ -321,9 +321,7 @@
 
     <!-- CHECKPOINTS -->
     <div class="view" id="view-checkpoints">
-      <div class="periodo-bar">
-        <h1>Checkpoints <span>Histórico de cálculos</span></h1>
-      </div>
+      <div class="periodo-bar"><h1>Checkpoints <span>Histórico de cálculos</span></h1></div>
       <div class="section" id="checkpoint-lista">
         <div class="section-header"><div><div class="section-title">Cálculos realizados</div><div class="section-sub">Clique em um checkpoint para ver o detalhamento</div></div></div>
         <div class="table-wrap"><table>
@@ -353,6 +351,7 @@
         </div>
       </div>
     </div>
+
     <div class="view" id="view-prestadores">
       <div class="periodo-bar">
         <h1>Prestadores <span>Cadastro</span></h1>
@@ -369,11 +368,10 @@
         </table></div>
       </div>
     </div>
-
   </div>
 </div>
 
-<!-- MODAL PRESTADOR -->
+<!-- MODAIS (mantidos iguais) -->
 <div class="modal-overlay" id="modal-overlay" onclick="fecharModal()">
   <div class="modal-box" onclick="event.stopPropagation()">
     <button class="modal-close" onclick="fecharModal()">✕</button>
@@ -408,7 +406,6 @@
   </div>
 </div>
 
-<!-- MODAL CONVITE -->
 <div class="modal-overlay" id="modal-convite" onclick="fecharModalConvite()">
   <div class="modal-box" style="width:440px;" onclick="event.stopPropagation()">
     <button class="modal-close" onclick="fecharModalConvite()">✕</button>
@@ -425,7 +422,6 @@
   </div>
 </div>
 
-<!-- MODAL CONTESTAR -->
 <div class="modal-overlay" id="modal-contestar" onclick="fecharModalContestar()">
   <div class="modal-box" style="width:440px;" onclick="event.stopPropagation()">
     <button class="modal-close" onclick="fecharModalContestar()">✕</button>
@@ -444,7 +440,6 @@ const{createClient}=supabase;
 const sb=createClient('https://zakxroemofwolqqkfyaz.supabase.co','sb_publishable_XqkLWf1GyJW9HqTJ1AxVkA_jCJ1rOky');
 let currentUser=null,currentPerfil=null,currentPrestadorId=null,currentValidacaoId=null;
 
-// Verifica sessão existente ao carregar
 (async()=>{
   const{data:{session}}=await sb.auth.getSession();
   if(session){
@@ -507,28 +502,71 @@ async function setupApp(usuario){
   }
 }
 
+// ── PERÍODO ───────────────────────────────────────────────────────────────────
+let periodoAtual='ultimo_mes';
+
+function getPeriodoDates(tipo){
+  const now=new Date();
+  const y=now.getFullYear(),m=now.getMonth();
+  switch(tipo){
+    case 'mes_atual':    return{ini:new Date(y,m,1),fim:new Date(y,m+1,0)};
+    case 'ultimo_mes':   return{ini:new Date(y,m-1,1),fim:new Date(y,m,0)};
+    case '3m':           return{ini:new Date(y,m-3,1),fim:new Date(y,m+1,0)};
+    case '6m':           return{ini:new Date(y,m-6,1),fim:new Date(y,m+1,0)};
+    case '12m':          return{ini:new Date(y,m-12,1),fim:new Date(y,m+1,0)};
+    case 'ano_atual':    return{ini:new Date(y,0,1),fim:new Date(y,11,31)};
+    case 'tudo':         return{ini:new Date('2000-01-01'),fim:new Date('2099-12-31')};
+    default:             return{ini:new Date(y,m-1,1),fim:new Date(y,m,0)};
+  }
+}
+
+function fmtDate(d){return d.toISOString().split('T')[0];}
+
+function togglePeriodoMenu(){
+  const m=document.getElementById('periodo-menu');
+  m.style.display=m.style.display==='none'?'block':'none';
+}
+
+function setPeriodo(tipo,label){
+  periodoAtual=tipo;
+  document.getElementById('periodo-label').textContent=label;
+  document.getElementById('periodo-menu').style.display='none';
+  document.querySelectorAll('.periodo-opt').forEach(o=>o.classList.remove('active'));
+  carregarGestao();
+}
+
+document.addEventListener('click',e=>{
+  if(!document.getElementById('btn-periodo')?.contains(e.target)){
+    const m=document.getElementById('periodo-menu');
+    if(m)m.style.display='none';
+  }
+});
+
+// ── GESTÃO ────────────────────────────────────────────────────────────────────
 async function carregarGestao(){
   const{ini,fim}=getPeriodoDates(periodoAtual);
   const{data:resumos}=await sb.from('vw_resumo_prestador').select('*')
     .gte('periodo_fim',fmtDate(ini)).lte('periodo_fim',fmtDate(fim))
     .order('periodo_fim',{ascending:false});
   if(!resumos||!resumos.length){
-    document.getElementById('tbody-parceiros').innerHTML='<tr><td colspan="7" class="loading">Nenhum dado no período selecionado.</td></tr>';
+    document.getElementById('tbody-parceiros').innerHTML='<tr><td colspan="8" class="loading">Nenhum dado no período selecionado.</td></tr>';
     document.getElementById('g-total').textContent='R$ 0';
     document.getElementById('g-sub1').textContent='—';
     document.getElementById('g-ativas').textContent='0';
     document.getElementById('g-suspensas').textContent='R$ 0';
-    await carregarValidacoesGestao();await carregarSelectParceiros();return;
+    document.getElementById('g-pendentes').textContent='0';
+    await carregarValidacoesGestao();
+    await carregarSelectParceiros();
+    return;
   }
   const tp=resumos.reduce((s,r)=>s+parseFloat(r.comissao_total||0),0);
   const ts=resumos.reduce((s,r)=>s+parseFloat(r.comissao_suspensa||0),0);
   const ta=resumos.reduce((s,r)=>s+parseInt(r.clientes_ativos||0),0);
   const enc=resumos.reduce((s,r)=>s+parseInt(r.clientes_encerrando||0),0);
   const inadimp=resumos.reduce((s,r)=>s+parseInt(r.clientes_inadimplentes||0),0);
-  // Agrupa por parceiro
   const porParceiro={};
   resumos.forEach(r=>{
-    if(!porParceiro[r.prestador_id])porParceiro[r.prestador_id]={nome:r.prestador_nome,fuel:0,mens:0,total:0,susp:0,clis:0};
+    if(!porParceiro[r.prestador_id])porParceiro[r.prestador_id]={id:r.prestador_id,nome:r.prestador_nome,fuel:0,mens:0,total:0,susp:0,clis:0};
     porParceiro[r.prestador_id].fuel+=parseFloat(r.comissao_fuel||0);
     porParceiro[r.prestador_id].mens+=parseFloat(r.comissao_mensalidades||0);
     porParceiro[r.prestador_id].total+=parseFloat(r.comissao_total||0);
@@ -548,8 +586,8 @@ async function carregarGestao(){
     <td class="td-green">${fmtR(p.total)}</td>
     <td class="${p.susp>0?'td-yellow':'td-muted'}">${fmtR(p.susp)}</td>
     <td><span class="badge ${p.susp>0?'badge-yellow':'badge-green'}">${p.susp>0?'suspensa':'✓ Ok'}</span></td>
+    <td><button class="dl-btn" style="padding:3px 8px;font-size:11px;" onclick="notificarParceiro('${pid}')">📧 Notificar</button></td>
   </tr>`).join('');
-  // Tabela clientes — último período
   const ultimo=resumos[0].periodo_fim;
   await carregarTabelaClientes(ultimo);
   await carregarValidacoesGestao();
@@ -575,7 +613,7 @@ async function carregarValidacoesGestao(){
   document.getElementById('tbody-validacoes').innerHTML=data.map(v=>{
     const sb2=v.status==='aprovado'?'badge-green':v.status==='contestado'?'badge-red':'badge-yellow';
     const sl=v.status==='aprovado'?'✓ Aprovado':v.status==='contestado'?'✗ Contestado':'⏳ Pendente';
-    return`<tr><td><strong style="color:var(--white)">${v.prestadores?.nome||'—'}</strong></td><td class="td-muted">${formatPeriodo(v.periodo_inicio,v.periodo_fim)}</td><td><span class="badge ${sb2}">${sl}</span></td><td class="td-muted">${v.aprovado_em?new Date(v.aprovado_em).toLocaleDateString('pt-BR'):'—'}</td><td class="td-muted" style="max-width:200px;overflow:hidden;text-overflow:ellipsis;">${v.observacao||'—'}</td><td>${v.status==='pendente'?`<button class="dl-btn" style="padding:3px 8px;font-size:11px;" onclick="notificarParceiro('${v.id}')">📧 Notificar</button>`:''}</td></tr>`;
+    return`<tr><td><strong style="color:var(--white)">${v.prestadores?.nome||'—'}</strong></td><td class="td-muted">${formatPeriodo(v.periodo_inicio,v.periodo_fim)}</td><td><span class="badge ${sb2}">${sl}</span></td><td class="td-muted">${v.aprovado_em?new Date(v.aprovado_em).toLocaleDateString('pt-BR'):'—'}</td><td class="td-muted" style="max-width:200px;overflow:hidden;text-overflow:ellipsis;">${v.observacao||'—'}</td><td>${v.status==='pendente'?`<button class="dl-btn" style="padding:3px 8px;font-size:11px;" onclick="notificarParceiro('${v.prestador_id}')">📧 Notificar</button>`:''}</td></tr>`;
   }).join('');
 }
 
@@ -586,10 +624,37 @@ async function carregarSelectParceiros(){
   sel.innerHTML='<option value="">Todos os parceiros</option>'+data.map(p=>`<option value="${p.id}">${p.nome}</option>`).join('');
 }
 
+async function filtrarPorParceiro(){
+  const sel=document.getElementById('select-parceiro');
+  const pid=sel.value;
+  const pnome=pid?sel.options[sel.selectedIndex].text:null;
+  document.getElementById('g-titulo-parceiro').textContent=pid?`· ${pnome}`:'';
+  if(pid){await carregarExtratoParceiro(pid);await atualizarCardsParParceiro(pid);}
+  else{document.getElementById('extrato-parceiro-content').innerHTML='<div class="loading">Selecione um parceiro acima</div>';await carregarGestao();}
+}
+
+async function atualizarCardsParParceiro(pid){
+  const{ini,fim}=getPeriodoDates(periodoAtual);
+  const{data}=await sb.from('vw_resumo_prestador').select('*').eq('prestador_id',pid)
+    .gte('periodo_fim',fmtDate(ini)).lte('periodo_fim',fmtDate(fim));
+  if(!data||!data.length){
+    document.getElementById('g-total').textContent='R$ 0';
+    document.getElementById('g-sub1').textContent='—';
+    document.getElementById('g-ativas').textContent='0';
+    document.getElementById('g-suspensas').textContent='R$ 0';
+    return;
+  }
+  const tp=data.reduce((s,r)=>s+parseFloat(r.comissao_total||0),0);
+  const ts=data.reduce((s,r)=>s+parseFloat(r.comissao_suspensa||0),0);
+  const ta=data.reduce((s,r)=>s+parseInt(r.clientes_ativos||0),0);
+  document.getElementById('g-total').textContent=fmtR(tp);
+  document.getElementById('g-sub1').textContent=`${data.length} período(s)`;
+  document.getElementById('g-ativas').textContent=ta;
+  document.getElementById('g-suspensas').textContent=fmtR(ts);
+}
+
 async function carregarExtratoParceiro(pid){
-  if(!pid)pid=document.getElementById('select-parceiro').value;
   const ct=document.getElementById('extrato-parceiro-content');
-  if(!pid){ct.innerHTML='<div class="loading">Selecione um parceiro acima</div>';return;}
   ct.innerHTML='<div class="loading">Carregando...</div>';
   const{ini,fim}=getPeriodoDates(periodoAtual);
   const{data}=await sb.from('vw_extrato_prestador').select('*').eq('prestador_id',pid)
@@ -609,7 +674,6 @@ async function carregarExtratoParceiro(pid){
   <tbody>${data.map(c=>{const pct=Math.round(parseFloat(c.fator_ramp)*100);const cs=c.status==='suspensa'?`<span class="td-yellow">Suspensa</span>`:`<span class="td-green">${fmtR(c.comissao_bruta)}</span>`;return`<tr><td class="td-muted mono">${formatPeriodo(c.periodo_inicio,c.periodo_fim)}</td><td><strong style="color:var(--white)">${c.cliente_nome}</strong></td><td><span class="badge ${c.produto==='FUEL'?'badge-blue':'badge-green'}">${c.produto}</span></td><td class="mono">${c.mes_curva}/12</td><td><div class="ramp-bar"><div class="ramp-track"><div class="ramp-fill ${pct<100?'partial':''}" style="width:${pct}%"></div></div><div class="ramp-label">${pct}%</div></div></td><td class="mono">${fmtR(c.base_calculo)}</td><td>${cs}</td><td><span class="badge ${c.status==='calculada'?'badge-green':'badge-yellow'}">${c.status}</span></td></tr>`;}).join('')}</tbody></table></div>`;
 }
 
-async function notificarParceiro(id){if(!confirm('Enviar notificação por e-mail para este parceiro?'))return;try{const{data:{session}}=await sb.auth.getSession();const{fim}=getPeriodoDates(periodoAtual);const periodo=new Date(fim).toLocaleDateString('pt-BR',{month:'long',year:'numeric'});const res=await fetch('https://zakxroemofwolqqkfyaz.supabase.co/functions/v1/clever-handler',{method:'POST',headers:{'Content-Type':'application/json','Authorization':`Bearer ${session.access_token}`},body:JSON.stringify({prestador_id:id,periodo})});const result=await res.json();if(result.ok)alert('✓ E-mail enviado com sucesso!');else alert('✗ Erro: '+JSON.stringify(result.error));}catch(e){alert('✗ Erro: '+e.message);}} 
 function buildAlertasHTML(inadimp,enc){
   let h='';
   if(inadimp>0)h+=`<div style="padding:16px;background:var(--red-dim);border:1px solid rgba(232,69,42,.2);border-radius:10px;margin-bottom:12px;font-size:13px;color:var(--red);font-weight:600;">🔴 ${inadimp} cliente(s) inadimplente(s)</div>`;
@@ -618,26 +682,63 @@ function buildAlertasHTML(inadimp,enc){
   return h;
 }
 
+// ── UPLOAD — CORRIGIDO ────────────────────────────────────────────────────────
+function showStatus(msg,tipo,target){
+  const elId=target||'upload-status';
+  const el=document.getElementById(elId);
+  if(!el)return;
+  el.className=`status-box status-${tipo}`;
+  el.style.display='block';
+  el.textContent=msg;
+}
+
 async function processarUpload(input){
   if(!input.files.length)return;
   const file=input.files[0];
-  const st=document.getElementById('upload-status');
-  st.className='status-box status-warn';st.style.display='block';
-  st.textContent=`⏳ Processando ${file.name}...`;
+  const isArq=input.id==='file-upload-arq';
+  const stId=isArq?'upload-status-arq':'upload-status';
+  showStatus(`⏳ Lendo ${file.name}...`,'warn',stId);
   try{
     const rows=await lerExcel(file);
-    if(!rows.length)throw new Error('Arquivo vazio');
+    if(!rows.length)throw new Error('Arquivo vazio ou formato inválido');
+    showStatus(`⏳ Salvando ${rows.length} linhas no banco...`,'warn',stId);
     const uid=crypto.randomUUID();
-    await sb.from('uploads').insert({id:uid,nome_arquivo:file.name,periodo_inicio:rows[0].periodo_inicio,periodo_fim:rows[0].periodo_fim,total_linhas:rows.length,uploader_id:currentUser.id});
-    const linhas=rows.map(r=>({upload_id:uid,uploader_id:currentUser.id,periodo_inicio:r.periodo_inicio,periodo_fim:r.periodo_fim,vendedor_nome:r.vendedor_nome,cliente_cnpj:r.cliente_cnpj,cliente_nome:r.cliente_nome,ativacao_fuel:r.ativacao_fuel||null,ativacao_pass:r.ativacao_pass||null,ativacao_fines:r.ativacao_fines||null,ativacao_premium:r.ativacao_premium||null,tpv_fuel:r.tpv_fuel?parseFloat(r.tpv_fuel):null,receita_fuel:r.receita_fuel?parseFloat(r.receita_fuel):null,receita_pass:r.receita_pass?parseFloat(r.receita_pass):null,receita_fines:r.receita_fines?parseFloat(r.receita_fines):null,receita_premium:r.receita_premium?parseFloat(r.receita_premium):null,status_cliente:r.status_cliente||'ativo'}));
+    const{error:uerr}=await sb.from('uploads').insert({
+      id:uid,nome_arquivo:file.name,
+      periodo_inicio:rows[0].periodo_inicio,periodo_fim:rows[0].periodo_fim,
+      total_linhas:rows.length,uploader_id:currentUser.id
+    });
+    if(uerr)throw new Error('Erro ao salvar upload: '+uerr.message);
+    const linhas=rows.map(r=>({
+      upload_id:uid,uploader_id:currentUser.id,
+      periodo_inicio:r.periodo_inicio,periodo_fim:r.periodo_fim,
+      vendedor_nome:r.vendedor_nome,cliente_cnpj:r.cliente_cnpj,cliente_nome:r.cliente_nome,
+      ativacao_fuel:r.ativacao_fuel||null,ativacao_pass:r.ativacao_pass||null,
+      ativacao_fines:r.ativacao_fines||null,ativacao_premium:r.ativacao_premium||null,
+      tpv_fuel:r.tpv_fuel?parseFloat(r.tpv_fuel):null,
+      receita_fuel:r.receita_fuel?parseFloat(r.receita_fuel):null,
+      receita_pass:r.receita_pass?parseFloat(r.receita_pass):null,
+      receita_fines:r.receita_fines?parseFloat(r.receita_fines):null,
+      receita_premium:r.receita_premium?parseFloat(r.receita_premium):null,
+      status_cliente:r.status_cliente||'ativo'
+    }));
     const{error:ferr}=await sb.from('fechamentos').insert(linhas);
-    if(ferr)throw ferr;
-    await sb.rpc('processar_comissoes',{p_upload_id:uid});
+    if(ferr)throw new Error('Erro ao salvar fechamentos: '+ferr.message);
+    showStatus(`⏳ Calculando comissões...`,'warn',stId);
+    const{error:rerr}=await sb.rpc('processar_comissoes',{p_upload_id:uid});
+    if(rerr){
+      showStatus(`⚠ Arquivo salvo mas cálculo falhou — clique em "▶ Rodar cálculo" para tentar novamente. (${rerr.message})`,'warn',stId);
+      input.value='';
+      if(isArq)await carregarArquivos();
+      return;
+    }
     await sb.rpc('criar_validacoes_pendentes',{p_upload_id:uid});
-    st.className='status-box status-ok';
-    st.textContent=`✓ ${file.name} processado — ${rows.length} linhas · Comissões calculadas`;
+    showStatus(`✓ ${file.name} processado — ${rows.length} linhas · Comissões calculadas com sucesso`,'ok',stId);
+    if(isArq)await carregarArquivos();
     await carregarGestao();
-  }catch(e){st.className='status-box status-err';st.textContent=`✗ Erro: ${e.message}`;}
+  }catch(e){
+    showStatus(`✗ Erro: ${e.message}`,'err',stId);
+  }
   input.value='';
 }
 
@@ -649,6 +750,74 @@ function lerExcel(file){
   });
 }
 
+// ── RODAR CÁLCULO ─────────────────────────────────────────────────────────────
+async function rodarCalculo(){
+  const st=document.getElementById('upload-status');
+  showStatus('⏳ Verificando arquivos pendentes...','warn','upload-status');
+  const{data:uploads}=await sb.from('uploads').select('*').order('criado_em',{ascending:true});
+  const{data:cps}=await sb.from('checkpoints').select('upload_id');
+  const processados=new Set((cps||[]).map(c=>c.upload_id));
+  // Considera pendente: sem checkpoint OU comissoes zeradas
+  const{data:comCount}=await sb.from('comissoes').select('upload_id: fechamentos!inner(upload_id)');
+  const comUploadIds=new Set((comCount||[]).map(c=>c['upload_id']));
+  const pendentes=(uploads||[]).filter(u=>!comUploadIds.has(u.id));
+  if(!pendentes.length){
+    showStatus('✓ Nenhum arquivo pendente de cálculo.','ok','upload-status');
+    return;
+  }
+  let totalOk=0,totalErr=0;
+  for(const upload of pendentes){
+    const{error}=await sb.rpc('processar_comissoes',{p_upload_id:upload.id});
+    if(!error){
+      await sb.rpc('criar_validacoes_pendentes',{p_upload_id:upload.id});
+      const resultado=await calcularCheckpoint(upload);
+      totalOk+=resultado.calculadas;
+      totalErr+=resultado.nao_calculadas;
+    }else{
+      totalErr++;
+    }
+  }
+  showStatus(`✓ Cálculo concluído — ${totalOk} comissões calculadas · ${totalErr} erros`,'ok','upload-status');
+  await carregarGestao();
+}
+
+async function calcularCheckpoint(upload){
+  const{data:fechamentos}=await sb.from('fechamentos').select('*').eq('upload_id',upload.id);
+  const{data:prestadores}=await sb.from('prestadores').select('id,nome').eq('ativo',true);
+  const prestMap={};(prestadores||[]).forEach(p=>prestMap[p.nome.trim().toLowerCase()]=p.id);
+  const detalhes=[];let calculadas=0,erros=0;
+  for(const f of(fechamentos||[])){
+    const produtos=[
+      {produto:'FUEL',ativacao:f.ativacao_fuel,receita:f.receita_fuel,taxa:0.20},
+      {produto:'PASS',ativacao:f.ativacao_pass,receita:f.receita_pass,taxa:0.07},
+      {produto:'FINES',ativacao:f.ativacao_fines,receita:f.receita_fines,taxa:0.07},
+      {produto:'PREMIUM',ativacao:f.ativacao_premium,receita:f.receita_premium,taxa:0.07},
+    ];
+    const pid=prestMap[f.vendedor_nome.trim().toLowerCase()];
+    for(const p of produtos){
+      if(!p.ativacao||!p.receita)continue;
+      if(!pid){detalhes.push({vendedor_nome:f.vendedor_nome,cliente_cnpj:f.cliente_cnpj,cliente_nome:f.cliente_nome,produto:p.produto,mes_curva:null,fator_ramp:null,comissao:0,status:'erro',erro:'Prestador não encontrado'});erros++;continue;}
+      const atDate=new Date(p.ativacao+'T12:00:00');
+      const fimDate=new Date(f.periodo_fim+'T12:00:00');
+      const mes=((fimDate.getFullYear()-atDate.getFullYear())*12+(fimDate.getMonth()-atDate.getMonth()))+1;
+      let fator=0;
+      if(mes===1)fator=0.2;else if(mes===2)fator=0.4;else if(mes===3)fator=0.6;else if(mes>=4&&mes<=6)fator=0.8;else if(mes>=7&&mes<=12)fator=1.0;
+      if(fator===0&&mes>0){detalhes.push({vendedor_nome:f.vendedor_nome,cliente_cnpj:f.cliente_cnpj,cliente_nome:f.cliente_nome,produto:p.produto,mes_curva:mes,fator_ramp:fator,comissao:0,status:'erro',erro:`Mês ${mes} fora da janela`});erros++;continue;}
+      const comissao=parseFloat(p.receita)*p.taxa*fator;
+      const statusCom=f.status_cliente==='churn'?'zerada':f.status_cliente==='inadimplente'?'suspensa':'calculada';
+      detalhes.push({vendedor_nome:f.vendedor_nome,cliente_cnpj:f.cliente_cnpj,cliente_nome:f.cliente_nome,produto:p.produto,mes_curva:mes,fator_ramp:fator,comissao:statusCom==='calculada'?comissao:0,status:statusCom,erro:null});
+      if(statusCom==='calculada')calculadas++;else erros++;
+    }
+  }
+  await sb.from('checkpoints').insert({
+    upload_id:upload.id,periodo_inicio:upload.periodo_inicio,periodo_fim:upload.periodo_fim,
+    total_linhas:detalhes.length,calculadas,nao_calculadas:erros,
+    detalhes:JSON.stringify(detalhes),criado_por:currentUser.id
+  });
+  return{calculadas,nao_calculadas:erros};
+}
+
+// ── VENDEDOR ──────────────────────────────────────────────────────────────────
 async function carregarVendedor(pid,nome){
   document.getElementById('v-nome').textContent=nome;
   const{data:ext}=await sb.from('vw_extrato_prestador').select('*').eq('prestador_id',pid).order('periodo_fim',{ascending:false});
@@ -718,6 +887,7 @@ async function confirmarContestacao(){
   await carregarVendedor(currentPrestadorId,document.getElementById('v-nome').textContent);
 }
 
+// ── PRESTADORES ───────────────────────────────────────────────────────────────
 async function carregarPrestadores(){
   const{data}=await sb.from('prestadores').select('*').order('nome');
   if(!data)return;
@@ -763,176 +933,6 @@ async function enviarConvite(){
   btn.textContent='Enviar convite';btn.disabled=false;
 }
 
-function switchNav(tab){
-  document.querySelectorAll('#nav-tabs .tab-btn').forEach(b=>b.classList.remove('active'));
-  document.getElementById('nav-'+tab).classList.add('active');
-  document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
-  if(tab==='comissoes'){document.getElementById('view-gestao').classList.add('active');carregarGestao();}
-  else if(tab==='arquivos'){document.getElementById('view-arquivos').classList.add('active');carregarArquivos();}
-  else if(tab==='checkpoints'){document.getElementById('view-checkpoints').classList.add('active');carregarCheckpoints();}
-  else{document.getElementById('view-prestadores').classList.add('active');carregarPrestadores();}
-}
-
-// ── FILTROS ───────────────────────────────────────────────────────────────────
-let periodoAtual = '12m';
-let parceiroFiltro = null; // { id, nome }
-
-function getPeriodoDates(tipo) {
-  const now = new Date();
-  const y = now.getFullYear(), m = now.getMonth();
-  switch(tipo) {
-    case 'mes_atual':    return { ini: new Date(y,m,1), fim: new Date(y,m+1,0) };
-    case 'mes_anterior': return { ini: new Date(y,m-1,1), fim: new Date(y,m,0) };
-    case '3m':           return { ini: new Date(y,m-3,1), fim: new Date(y,m+1,0) };
-    case '6m':           return { ini: new Date(y,m-6,1), fim: new Date(y,m+1,0) };
-    case '12m':          return { ini: new Date(y,m-12,1), fim: new Date(y,m+1,0) };
-    case 'ano_atual':    return { ini: new Date(y,0,1), fim: new Date(y,11,31) };
-    case 'tudo':         return { ini: new Date('2000-01-01'), fim: new Date('2099-12-31') };
-    default:             return { ini: new Date(y,m-12,1), fim: new Date(y,m+1,0) };
-  }
-}
-
-function fmtDate(d) { return d.toISOString().split('T')[0]; }
-
-function togglePeriodoMenu() {
-  const m = document.getElementById('periodo-menu');
-  m.style.display = m.style.display === 'none' ? 'block' : 'none';
-}
-
-function setPeriodo(tipo, label) {
-  periodoAtual = tipo;
-  document.getElementById('periodo-label').textContent = label;
-  document.getElementById('periodo-menu').style.display = 'none';
-  carregarGestao();
-}
-
-// Fecha menu ao clicar fora
-document.addEventListener('click', e => {
-  if (!document.getElementById('btn-periodo')?.contains(e.target)) {
-    const m = document.getElementById('periodo-menu');
-    if (m) m.style.display = 'none';
-  }
-});
-
-async function filtrarPorParceiro() {
-  const sel = document.getElementById('select-parceiro');
-  const pid = sel.value;
-  const pnome = pid ? sel.options[sel.selectedIndex].text : null;
-
-  parceiroFiltro = pid ? { id: pid, nome: pnome } : null;
-
-  // Atualiza título
-  const tituloEl = document.getElementById('g-titulo-parceiro');
-  tituloEl.textContent = pid ? `· ${pnome}` : '';
-
-  if (pid) {
-    await carregarExtratoParceiro(pid);
-    await atualizarCardsParParceiro(pid);
-  } else {
-    document.getElementById('extrato-parceiro-content').innerHTML = '<div class="loading">Selecione um parceiro acima</div>';
-    await carregarGestao();
-  }
-}
-
-async function atualizarCardsParParceiro(pid) {
-  const { ini, fim } = getPeriodoDates(periodoAtual);
-  const { data } = await sb.from('vw_resumo_prestador').select('*')
-    .eq('prestador_id', pid)
-    .gte('periodo_fim', fmtDate(ini))
-    .lte('periodo_fim', fmtDate(fim));
-
-  if (!data || !data.length) {
-    document.getElementById('g-total').textContent = 'R$ 0';
-    document.getElementById('g-sub1').textContent = '—';
-    document.getElementById('g-ativas').textContent = '0';
-    document.getElementById('g-suspensas').textContent = 'R$ 0';
-    return;
-  }
-  const tp = data.reduce((s,r)=>s+parseFloat(r.comissao_total||0),0);
-  const ts = data.reduce((s,r)=>s+parseFloat(r.comissao_suspensa||0),0);
-  const ta = data.reduce((s,r)=>s+parseInt(r.clientes_ativos||0),0);
-  document.getElementById('g-total').textContent = fmtR(tp);
-  document.getElementById('g-sub1').textContent = `${data.length} período(s)`;
-  document.getElementById('g-ativas').textContent = ta;
-  document.getElementById('g-suspensas').textContent = fmtR(ts);
-}
-async function rodarCalculo(){
-  const st=document.getElementById('upload-status');
-  st.className='status-box status-warn';st.style.display='block';
-  st.textContent='⏳ Verificando arquivos pendentes...';
-
-  // Busca uploads sem checkpoint
-  const{data:uploads}=await sb.from('uploads').select('*').eq('status','concluido').order('criado_em',{ascending:true});
-  const{data:cps}=await sb.from('checkpoints').select('upload_id');
-  const processados=new Set((cps||[]).map(c=>c.upload_id));
-  const pendentes=(uploads||[]).filter(u=>!processados.has(u.id));
-
-  if(!pendentes.length){
-    st.className='status-box status-ok';
-    st.textContent='✓ Nenhum arquivo pendente de cálculo.';
-    return;
-  }
-
-  let totalCalculadas=0,totalErros=0;
-  for(const upload of pendentes){
-    const resultado=await calcularCheckpoint(upload);
-    totalCalculadas+=resultado.calculadas;
-    totalErros+=resultado.nao_calculadas;
-  }
-
-  st.className='status-box status-ok';
-  st.textContent=`✓ Cálculo concluído — ${totalCalculadas} comissões calculadas · ${totalErros} erros · Veja a aba Checkpoints`;
-  await carregarGestao();
-}
-
-async function calcularCheckpoint(upload){
-  // Busca fechamentos do upload
-  const{data:fechamentos}=await sb.from('fechamentos').select('*').eq('upload_id',upload.id);
-  const{data:prestadores}=await sb.from('prestadores').select('id,nome').eq('ativo',true);
-  const prestMap={};(prestadores||[]).forEach(p=>prestMap[p.nome.trim().toLowerCase()]=p.id);
-
-  const detalhes=[];let calculadas=0,erros=0;
-
-  for(const f of (fechamentos||[])){
-    const produtos=[
-      {produto:'FUEL',ativacao:f.ativacao_fuel,receita:f.receita_fuel,taxa:0.20},
-      {produto:'PASS',ativacao:f.ativacao_pass,receita:f.receita_pass,taxa:0.07},
-      {produto:'FINES',ativacao:f.ativacao_fines,receita:f.receita_fines,taxa:0.07},
-      {produto:'PREMIUM',ativacao:f.ativacao_premium,receita:f.receita_premium,taxa:0.07},
-    ];
-
-    const pid=prestMap[f.vendedor_nome.trim().toLowerCase()];
-
-    for(const p of produtos){
-      if(!p.ativacao||!p.receita)continue;
-      if(!pid){
-        detalhes.push({vendedor_nome:f.vendedor_nome,cliente_cnpj:f.cliente_cnpj,cliente_nome:f.cliente_nome,produto:p.produto,mes_curva:null,fator_ramp:null,comissao:0,status:'erro',erro:'Prestador não encontrado no cadastro'});
-        erros++;continue;
-      }
-      // Calcula mês curva
-      const atDate=new Date(p.ativacao+'T12:00:00');
-      const fimDate=new Date(f.periodo_fim+'T12:00:00');
-      const mes=((fimDate.getFullYear()-atDate.getFullYear())*12+(fimDate.getMonth()-atDate.getMonth()))+1;
-      let fator=0;
-      if(mes===1)fator=0.2;else if(mes===2)fator=0.4;else if(mes===3)fator=0.6;else if(mes>=4&&mes<=6)fator=0.8;else if(mes>=7&&mes<=12)fator=1.0;
-      if(fator===0&&mes>0){detalhes.push({vendedor_nome:f.vendedor_nome,cliente_cnpj:f.cliente_cnpj,cliente_nome:f.cliente_nome,produto:p.produto,mes_curva:mes,fator_ramp:fator,comissao:0,status:'erro',erro:`Mês ${mes} fora da janela de 12 meses`});erros++;continue;}
-      const comissao=parseFloat(p.receita)*p.taxa*fator;
-      const statusCom=f.status_cliente==='churn'?'zerada':f.status_cliente==='inadimplente'?'suspensa':'calculada';
-      detalhes.push({vendedor_nome:f.vendedor_nome,cliente_cnpj:f.cliente_cnpj,cliente_nome:f.cliente_nome,produto:p.produto,mes_curva:mes,fator_ramp:fator,comissao:statusCom==='calculada'?comissao:0,status:statusCom,erro:null});
-      if(statusCom==='calculada')calculadas++;else erros++;
-    }
-  }
-
-  // Salva checkpoint
-  await sb.from('checkpoints').insert({
-    upload_id:upload.id,periodo_inicio:upload.periodo_inicio,periodo_fim:upload.periodo_fim,
-    total_linhas:detalhes.length,calculadas,nao_calculadas:erros,
-    detalhes:JSON.stringify(detalhes),criado_por:currentUser.id
-  });
-
-  return{calculadas,nao_calculadas:erros};
-}
-
 // ── ARQUIVOS ──────────────────────────────────────────────────────────────────
 async function carregarArquivos(){
   const{data}=await sb.from('uploads').select('*').order('criado_em',{ascending:false});
@@ -941,13 +941,11 @@ async function carregarArquivos(){
   if(!data||!data.length){document.getElementById('tbody-arquivos').innerHTML='<tr><td colspan="6" class="loading">Nenhum arquivo enviado.</td></tr>';return;}
   document.getElementById('tbody-arquivos').innerHTML=data.map(u=>{
     const calc=processados.has(u.id);
-    const statusBadge=calc?'badge-green':'badge-yellow';
-    const statusLabel=calc?'Calculado':'Pendente';
     return`<tr>
       <td><strong style="color:var(--white)">${u.nome_arquivo}</strong></td>
       <td class="td-muted">${formatPeriodo(u.periodo_inicio,u.periodo_fim)}</td>
       <td class="mono">${u.total_linhas}</td>
-      <td><span class="badge ${statusBadge}">${statusLabel}</span></td>
+      <td><span class="badge ${calc?'badge-green':'badge-yellow'}">${calc?'Calculado':'Pendente'}</span></td>
       <td class="td-muted">${new Date(u.criado_em).toLocaleDateString('pt-BR')}</td>
       <td style="display:flex;gap:6px;">
         ${!calc?`<button class="dl-btn" style="padding:4px 10px;font-size:12px;color:var(--yellow);border-color:var(--yellow);" onclick="calcularArquivo('${u.id}')">▶ Calcular</button>`:''}
@@ -960,36 +958,46 @@ async function carregarArquivos(){
 async function calcularArquivo(uploadId){
   const{data:upload}=await sb.from('uploads').select('*').eq('id',uploadId).single();
   if(!upload)return;
-  const st=document.getElementById('upload-status');
-  st.className='status-box status-warn';st.style.display='block';
-  st.textContent=`⏳ Calculando ${upload.nome_arquivo}...`;
+  showStatus(`⏳ Calculando ${upload.nome_arquivo}...`,'warn','upload-status-arq');
+  const{error}=await sb.rpc('processar_comissoes',{p_upload_id:uploadId});
+  if(error){showStatus(`✗ Erro no cálculo: ${error.message}`,'err','upload-status-arq');return;}
+  await sb.rpc('criar_validacoes_pendentes',{p_upload_id:uploadId});
   const r=await calcularCheckpoint(upload);
-  st.className='status-box status-ok';
-  st.textContent=`✓ Concluído — ${r.calculadas} calculadas · ${r.nao_calculadas} erros`;
+  showStatus(`✓ Concluído — ${r.calculadas} calculadas · ${r.nao_calculadas} erros`,'ok','upload-status-arq');
   await carregarArquivos();
 }
 
 async function excluirArquivo(uploadId,nome){
-  if(!confirm(`Excluir "${nome}"? Isso remove todos os fechamentos e comissões vinculados.`))return;
-  await sb.from('uploads').delete().eq('id',uploadId);
+  if(!confirm(`Excluir "${nome}"? Remove todos os dados vinculados.`))return;
+  // Exclui na ordem certa para respeitar FK
+  await sb.from('checkpoints').delete().eq('upload_id',uploadId);
+  await sb.from('comissoes').delete().eq('fechamento_id', uploadId); // via fechamentos
+  const{data:fecIds}=await sb.from('fechamentos').select('id').eq('upload_id',uploadId);
+  if(fecIds&&fecIds.length){
+    const ids=fecIds.map(f=>f.id);
+    await sb.from('comissoes').delete().in('fechamento_id',ids);
+  }
+  await sb.from('validacoes_mensais').delete().eq('upload_id',uploadId);
+  await sb.from('fechamentos').delete().eq('upload_id',uploadId);
+  const{error}=await sb.from('uploads').delete().eq('id',uploadId);
+  if(error){alert('Erro ao excluir: '+error.message);return;}
   await carregarArquivos();
   await carregarGestao();
 }
 
 // ── CHECKPOINTS ───────────────────────────────────────────────────────────────
 let cpAtual=null;
-
 async function carregarCheckpoints(){
   document.getElementById('checkpoint-lista').style.display='block';
   document.getElementById('checkpoint-detalhe').style.display='none';
   const{data}=await sb.from('checkpoints').select('*,uploads(nome_arquivo)').order('criado_em',{ascending:false});
-  if(!data||!data.length){document.getElementById('tbody-checkpoints').innerHTML='<tr><td colspan="7" class="loading">Nenhum checkpoint gerado ainda.</td></tr>';return;}
+  if(!data||!data.length){document.getElementById('tbody-checkpoints').innerHTML='<tr><td colspan="7" class="loading">Nenhum checkpoint.</td></tr>';return;}
   document.getElementById('tbody-checkpoints').innerHTML=data.map(c=>`<tr>
     <td class="td-muted">${formatPeriodo(c.periodo_inicio,c.periodo_fim)}</td>
     <td><strong style="color:var(--white)">${c.uploads?.nome_arquivo||'—'}</strong></td>
     <td class="mono">${c.total_linhas}</td>
     <td class="td-green">${c.calculadas}</td>
-    <td class="${c.nao_calculadas>0?'td-red td-yellow':''}">${c.nao_calculadas}</td>
+    <td class="${c.nao_calculadas>0?'td-yellow':''}">${c.nao_calculadas}</td>
     <td class="td-muted">${new Date(c.criado_em).toLocaleString('pt-BR')}</td>
     <td><button class="dl-btn" style="padding:4px 10px;font-size:12px;" onclick="abrirDetalheCheckpoint('${c.id}')">Ver detalhes</button></td>
   </tr>`).join('');
@@ -1009,53 +1017,60 @@ async function abrirDetalheCheckpoint(cpId){
   document.getElementById('tbody-cp-detalhe').innerHTML=det.map(d=>{
     const pct=d.fator_ramp!=null?Math.round(d.fator_ramp*100):null;
     const stBadge=d.status==='calculada'?'badge-green':d.status==='suspensa'?'badge-yellow':d.status==='zerada'?'badge-blue':'badge-red';
-    return`<tr>
-      <td>${d.vendedor_nome}</td>
-      <td><strong style="color:var(--white)">${d.cliente_nome}</strong></td>
-      <td class="mono td-muted">${d.cliente_cnpj}</td>
-      <td><span class="badge ${d.produto==='FUEL'?'badge-blue':'badge-green'}">${d.produto}</span></td>
-      <td class="mono">${d.mes_curva!=null?d.mes_curva+'/12':'—'}</td>
-      <td>${pct!=null?`<div class="ramp-bar"><div class="ramp-track"><div class="ramp-fill ${pct<100?'partial':''}" style="width:${pct}%"></div></div><div class="ramp-label">${pct}%</div></div>`:'—'}</td>
-      <td class="${d.status==='calculada'?'td-green':'td-muted'}">${fmtR(d.comissao)}</td>
-      <td><span class="badge ${stBadge}">${d.status}</span></td>
-      <td style="color:var(--red);font-size:12px;max-width:200px;white-space:normal;">${d.erro||'—'}</td>
-    </tr>`;
+    return`<tr><td>${d.vendedor_nome}</td><td><strong style="color:var(--white)">${d.cliente_nome}</strong></td><td class="mono td-muted">${d.cliente_cnpj}</td><td><span class="badge ${d.produto==='FUEL'?'badge-blue':'badge-green'}">${d.produto}</span></td><td class="mono">${d.mes_curva!=null?d.mes_curva+'/12':'—'}</td><td>${pct!=null?`<div class="ramp-bar"><div class="ramp-track"><div class="ramp-fill ${pct<100?'partial':''}" style="width:${pct}%"></div></div><div class="ramp-label">${pct}%</div></div>`:'—'}</td><td class="${d.status==='calculada'?'td-green':'td-muted'}">${fmtR(d.comissao)}</td><td><span class="badge ${stBadge}">${d.status}</span></td><td style="color:var(--red);font-size:12px;max-width:200px;white-space:normal;">${d.erro||'—'}</td></tr>`;
   }).join('');
 }
 
-function fecharDetalheCheckpoint(){
-  document.getElementById('checkpoint-lista').style.display='block';
-  document.getElementById('checkpoint-detalhe').style.display='none';
-  cpAtual=null;
-}
+function fecharDetalheCheckpoint(){document.getElementById('checkpoint-lista').style.display='block';document.getElementById('checkpoint-detalhe').style.display='none';cpAtual=null;}
 
 async function baixarCheckpoint(){
   if(!cpAtual)return;
   const det=typeof cpAtual.detalhes==='string'?JSON.parse(cpAtual.detalhes):cpAtual.detalhes;
   const wb=XLSX.utils.book_new();
-  // Cabeçalho
-  const cabRows=[
-    ['Arquivo',cpAtual.uploads?.nome_arquivo||'—'],
-    ['Período',formatPeriodo(cpAtual.periodo_inicio,cpAtual.periodo_fim)],
-    ['Total de linhas',cpAtual.total_linhas],
-    ['Calculadas',cpAtual.calculadas],
-    ['Erros',cpAtual.nao_calculadas],
-    ['Gerado em',new Date(cpAtual.criado_em).toLocaleString('pt-BR')],
-    [],
-  ];
-  const detRows=[
-    ['Vendedor','Cliente','CNPJ','Produto','Mês curva','Fator ramp','Comissão','Status','Erro'],
-    ...det.map(d=>[d.vendedor_nome,d.cliente_nome,d.cliente_cnpj,d.produto,d.mes_curva,d.fator_ramp,d.comissao,d.status,d.erro||''])
-  ];
+  const cabRows=[['Arquivo',cpAtual.uploads?.nome_arquivo||'—'],['Período',formatPeriodo(cpAtual.periodo_inicio,cpAtual.periodo_fim)],['Total',cpAtual.total_linhas],['Calculadas',cpAtual.calculadas],['Erros',cpAtual.nao_calculadas],['Gerado em',new Date(cpAtual.criado_em).toLocaleString('pt-BR')],[]];
+  const detRows=[['Vendedor','Cliente','CNPJ','Produto','Mês curva','Fator ramp','Comissão','Status','Erro'],...det.map(d=>[d.vendedor_nome,d.cliente_nome,d.cliente_cnpj,d.produto,d.mes_curva,d.fator_ramp,d.comissao,d.status,d.erro||''])];
   const ws=XLSX.utils.aoa_to_sheet([...cabRows,...detRows]);
   ws['!cols']=[{wch:20},{wch:25},{wch:22},{wch:10},{wch:10},{wch:12},{wch:14},{wch:12},{wch:35}];
   XLSX.utils.book_append_sheet(wb,ws,'Checkpoint');
   XLSX.writeFile(wb,`checkpoint_${cpAtual.periodo_fim}.xlsx`);
 }
+
+// ── NAV ───────────────────────────────────────────────────────────────────────
+function switchNav(tab){
+  document.querySelectorAll('#nav-tabs .tab-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('nav-'+tab).classList.add('active');
+  document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+  if(tab==='comissoes'){document.getElementById('view-gestao').classList.add('active');carregarGestao();}
+  else if(tab==='arquivos'){document.getElementById('view-arquivos').classList.add('active');carregarArquivos();}
+  else if(tab==='checkpoints'){document.getElementById('view-checkpoints').classList.add('active');carregarCheckpoints();}
+  else{document.getElementById('view-prestadores').classList.add('active');carregarPrestadores();}
+}
+
 function switchTab(btn,tabId){btn.closest('.section').querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));btn.classList.add('active');btn.closest('.section').querySelectorAll('.tab-content').forEach(t=>t.classList.remove('active'));document.getElementById(tabId).classList.add('active');}
 
+// ── NOTIFICAR ─────────────────────────────────────────────────────────────────
+async function notificarParceiro(id){
+  if(!confirm('Enviar notificação por e-mail para este parceiro?'))return;
+  try{
+    const{data:{session}}=await sb.auth.getSession();
+    const{fim}=getPeriodoDates(periodoAtual);
+    const periodo=new Date(fim).toLocaleDateString('pt-BR',{month:'long',year:'numeric'});
+    const res=await fetch('https://zakxroemofwolqqkfyaz.supabase.co/functions/v1/clever-handler',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':`Bearer ${session.access_token}`},
+      body:JSON.stringify({prestador_id:id,periodo})
+    });
+    const result=await res.json();
+    if(result.ok)alert('✓ E-mail enviado com sucesso!');
+    else alert('✗ Erro: '+JSON.stringify(result.error));
+  }catch(e){alert('✗ Erro: '+e.message);}
+}
+
+// ── EXPORTAR ──────────────────────────────────────────────────────────────────
 function exportarRelatorio(){alert('Em desenvolvimento.');}
 function exportarExtrato(){alert('Em desenvolvimento.');}
+
+// ── UTILS ─────────────────────────────────────────────────────────────────────
 function fmtR(v){return'R$ '+parseFloat(v||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});}
 function formatPeriodo(i,f){if(!f)return'—';return new Date(f+'T12:00:00').toLocaleDateString('pt-BR',{month:'long',year:'numeric'});}
 </script>

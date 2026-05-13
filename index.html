@@ -1049,22 +1049,7 @@ function switchNav(tab){
 function switchTab(btn,tabId){btn.closest('.section').querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));btn.classList.add('active');btn.closest('.section').querySelectorAll('.tab-content').forEach(t=>t.classList.remove('active'));document.getElementById(tabId).classList.add('active');}
 
 // ── NOTIFICAR ─────────────────────────────────────────────────────────────────
-async function notificarParceiro(id){
-  if(!confirm('Enviar notificação por e-mail para este parceiro?'))return;
-  try{
-    const{data:{session}}=await sb.auth.getSession();
-    const{fim}=getPeriodoDates(periodoAtual);
-    const periodo=new Date(fim).toLocaleDateString('pt-BR',{month:'long',year:'numeric'});
-    const res=await fetch('https://zakxroemofwolqqkfyaz.supabase.co/functions/v1/clever-handler',{
-      method:'POST',
-      headers:{'Content-Type':'application/json','Authorization':`Bearer ${session.access_token}`},
-      body:JSON.stringify({prestador_id:id,periodo})
-    });
-    const result=await res.json();
-    if(result.ok)alert('✓ E-mail enviado com sucesso!');
-    else alert('✗ Erro: '+JSON.stringify(result.error));
-  }catch(e){alert('✗ Erro: '+e.message);}
-}
+async function notificarParceiro(id){if(!confirm('Enviar notificação por e-mail para este parceiro?'))return;try{const res=await fetch('https://zakxroemofwolqqkfyaz.supabase.co/functions/v1/clever-handler',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inpha3hyb2Vtb2Z3b2xxcWtmeWF6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc0OTA4NTMsImV4cCI6MjA5MzA2Njg1M30.U2R5R2YUDY0kIPXTgtqmNDfFjxm3EqSSVcj3hLj-bC0','apikey':'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inpha3hyb2Vtb2Z3b2xxcWtmeWF6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc0OTA4NTMsImV4cCI6MjA5MzA2Njg1M30.U2R5R2YUDY0kIPXTgtqmNDfFjxm3EqSSVcj3hLj-bC0'},body:JSON.stringify({prestador_id:id,periodo:'maio de 2026'})});const result=await res.json();if(result.ok)alert('✓ E-mail enviado com sucesso!');else alert('✗ Erro: '+JSON.stringify(result.error));}catch(e){alert('✗ Erro: '+e.message);}}}
 
 // ── EXPORTAR ──────────────────────────────────────────────────────────────────
 function exportarRelatorio(){alert('Em desenvolvimento.');}

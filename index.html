@@ -151,7 +151,7 @@
     </div>
     <div class="form-field"><label class="form-label">E-mail</label><input type="email" class="login-input" id="email-input" placeholder="seu@efleet.digital"></div>
     <div class="form-field"><label class="form-label">Senha</label><input type="password" class="login-input" id="senha-input" placeholder="••••••••"></div>
-    <button class="login-btn" id="login-btn" onclick="doLogin()">Entrar</button>
+<button class="login-btn" id="login-btn">Entrar</button>
     <div class="login-error" id="login-error">E-mail, senha ou perfil incorretos.</div>
   </div>
 </div>
@@ -1058,6 +1058,7 @@ function exportarExtrato(){alert('Em desenvolvimento.');}
 // ── UTILS ─────────────────────────────────────────────────────────────────────
 function fmtR(v){return'R$ '+parseFloat(v||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});}
 function formatPeriodo(i,f){if(!f)return'—';return new Date(f+'T12:00:00').toLocaleDateString('pt-BR',{month:'long',year:'numeric'});}
+document.getElementById('login-btn').addEventListener('click',doLogin);
 </script>
 </body>
 </html>

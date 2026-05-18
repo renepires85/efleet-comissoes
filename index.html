@@ -252,7 +252,16 @@ tbody tr:hover td{background:rgba(255,255,255,0.02);}
     <div class="form-field"><label class="input-label">E-mail</label><input type="email" class="input" id="email-input" placeholder="seu@efleet.digital"></div>
     <div class="form-field"><label class="input-label">Senha</label><input type="password" class="input" id="senha-input" placeholder="••••••••"></div>
     <button class="btn btn-primary btn-lg btn-full" id="login-btn">Entrar</button>
-    <div class="login-error" id="login-error">E-mail, senha ou perfil incorretos.</div>
+<div class="login-error" id="login-error">E-mail, senha ou perfil incorretos.</div>
+    <div style="text-align:center;margin-top:16px;">
+      <span style="font-size:13px;color:var(--efl-gray-400);">Primeiro acesso? </span>
+      <button id="btn-primeiro-acesso" style="background:none;border:none;color:var(--efl-green-500);font-size:13px;font-weight:700;cursor:pointer;font-family:var(--efl-font-head);">Ativar minha conta</button>
+    </div>
+    <div id="primeiro-acesso-box" style="display:none;margin-top:16px;">
+      <div class="form-field"><label class="input-label">Seu e-mail</label><input type="email" class="input" id="pa-email" placeholder="seu@email.com"></div>
+      <button id="btn-enviar-pa" class="btn btn-primary btn-lg btn-full">Enviar link de acesso</button>
+      <div class="status-box" id="pa-status" style="margin-top:12px;"></div>
+    </div>
   </div>
 </div>
 
@@ -636,6 +645,19 @@ document.addEventListener('DOMContentLoaded',async()=>{
   document.getElementById('btn-aprovar').addEventListener('click',aprovarComissoes);
   document.getElementById('btn-contestar').addEventListener('click',abrirModalContestar);
   document.getElementById('btn-dados-bancarios').addEventListener('click',abrirModalBanco);
+  document.getElementById('btn-primeiro-acesso').addEventListener('click',()=>{
+  const box=document.getElementById('primeiro-acesso-box');
+  box.style.display=box.style.display==='none'?'block':'none';
+});
+document.getElementById('btn-enviar-pa').addEventListener('click',async()=>{
+  const email=document.getElementById('pa-email').value.trim();
+  const st=document.getElementById('pa-status');
+  if(!email){st.className='status-box status-err';st.style.display='block';st.textContent='Informe seu e-mail.';return;}
+  st.className='status-box status-warn';st.style.display='block';st.textContent='Enviando...';
+  const{error}=await sb.auth.signInWithOtp({email,options:{emailRedirectTo:'https://efleet-comissoes.vercel.app'}});
+  if(error){st.className='status-box status-err';st.style.display='block';st.textContent='Erro: '+error.message;return;}
+  st.className='status-box status-ok';st.style.display='block';st.textContent='✓ Link enviado! Verifique seu e-mail.';
+});
   document.getElementById('btn-extrato-pdf').addEventListener('click',exportarExtratoPDF);
 
   // Checkpoints

@@ -76,15 +76,28 @@ document.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('btn-cp-voltar').addEventListener('click', fecharDetalheCheckpoint);
   document.getElementById('btn-cp-baixar').addEventListener('click', baixarCheckpoint);
 
-  // ── VERIFICAR SESSÃO ────────────────────────────────────────────────────────
+    // ── VERIFICAR SESSÃO ────────────────────────────────────────────────────────
+  sb.auth.onAuthStateChange(async (event, session) => {
+    if (!session) return;
+    currentUser = session.user;
+    if (event === 'SIGNED_IN' || event === 'USER_UPDATED') {
+      const { data: usuario } = await sb.from('usuarios').select('*').eq('id', session.user.id).single();
+      if (!usuario) {
+        await iniciarOnboarding(session.user);
+        return;
+      }
+      currentPerfil = usuario.perfil;
+      if (usuario.perfil === 'vendedor' && !usuario.onboarding_concluido) {
+        await iniciarOnboarding(session.user, usuario);
+        return;
+      }
+      await setupApp(usuario);
+    }
+  });
+
   const { data: { session } } = await sb.auth.getSession();
   if (session) {
     currentUser = session.user;
-    const hash = window.location.hash;
-    if (hash.includes('type=invite') || hash.includes('type=recovery')) {
-      await iniciarOnboarding(session.user);
-      return;
-    }
     const { data: usuario } = await sb.from('usuarios').select('*').eq('id', session.user.id).single();
     if (usuario) {
       currentPerfil = usuario.perfil;
@@ -96,3 +109,4 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   }
 });
+

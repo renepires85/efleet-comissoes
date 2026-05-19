@@ -4,6 +4,8 @@ function abrirModalSolicitacao() {
   document.getElementById('sol-email').value    = '';
   document.getElementById('sol-telefone').value = '';
   document.getElementById('sol-tipo').value     = 'parceiro_comercial';
+  document.getElementById('sol-senha').value    = '';
+  document.getElementById('sol-senha2').value   = '';
   const st = document.getElementById('sol-status');
   st.style.display = 'none'; st.className = 'status-box';
   document.getElementById('modal-solicitacao').style.display = 'flex';
@@ -18,6 +20,8 @@ async function enviarSolicitacao() {
   const email    = document.getElementById('sol-email').value.trim();
   const telefone = document.getElementById('sol-telefone').value.trim();
   const tipo     = document.getElementById('sol-tipo').value;
+  const senha    = document.getElementById('sol-senha').value;
+  const senha2   = document.getElementById('sol-senha2').value;
   const st       = document.getElementById('sol-status');
   const btn      = document.getElementById('btn-enviar-solicitacao');
 
@@ -25,15 +29,25 @@ async function enviarSolicitacao() {
     st.className = 'status-box status-err'; st.style.display = 'block';
     st.textContent = 'Preencha nome e e-mail.'; return;
   }
+  if (senha.length < 8) {
+    st.className = 'status-box status-err'; st.style.display = 'block';
+    st.textContent = 'A senha deve ter pelo menos 8 caracteres.'; return;
+  }
+  if (senha !== senha2) {
+    st.className = 'status-box status-err'; st.style.display = 'block';
+    st.textContent = 'As senhas não conferem.'; return;
+  }
 
   btn.textContent = 'Enviando...'; btn.disabled = true;
 
   try {
-    const { error } = await sb.from('solicitacoes_acesso').insert({ nome, email, telefone, tipo });
+    const { error } = await sb.from('solicitacoes_acesso').insert({ nome, email, telefone, tipo, senha_hash: senha });
     if (error) throw new Error(error.message);
+
     await notificarGestaoSolicitacao({ nome, email, telefone, tipo });
+
     st.className = 'status-box status-ok'; st.style.display = 'block';
-    st.textContent = '✓ Solicitação enviada! A equipe eFleet entrará em contato em breve.';
+    st.textContent = '✓ Solicitação enviada! Você receberá um e-mail quando o acesso for liberado.';
     btn.textContent = 'Enviado';
   } catch (e) {
     st.className = 'status-box status-err'; st.style.display = 'block';
@@ -59,7 +73,7 @@ async function carregarSolicitacoes() {
         <td><span class="badge badge-blue">${tipoLabel(s.tipo)}</span></td>
         <td class="td-muted">${new Date(s.created_at).toLocaleDateString('pt-BR')}</td>
         <td style="display:flex;gap:6px;">
-          <button class="btn btn-primary btn-sm" onclick="aprovarSolicitacao('${s.id}','${s.nome}','${s.email}','${s.tipo}')">✓ Aprovar</button>
+          <button class="btn btn-primary btn-sm" onclick="aprovarSolicitacao('${s.id}','${s.nome}','${s.email}','${s.tipo}','${s.senha_hash}')">✓ Aprovar</button>
           <button class="btn btn-danger btn-sm" onclick="rejeitarSolicitacao('${s.id}')">✗ Rejeitar</button>
         </td>
       </tr>`).join('')
@@ -76,20 +90,31 @@ async function carregarSolicitacoes() {
     : '<tr><td colspan="5" class="loading">Nenhum histórico.</td></tr>';
 }
 
-async function aprovarSolicitacao(id, nome, email, tipo) {
-  if (!confirm(`Aprovar solicitação de ${nome} e enviar convite para ${email}?`)) return;
+async function aprovarSolicitacao(id, nome, email, tipo, senha) {
+  if (!confirm(`Aprovar acesso de ${nome} (${email})?`)) return;
+
   const perfil = tipo === 'gestao' ? 'gestao' : 'vendedor';
+
   try {
     const { data: { session } } = await sb.auth.getSession();
     const res = await fetch(SMART_URL, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}`, 'apikey': SUPABASE_ANON },
-      body: JSON.stringify({ nome, email, perfil })
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${session.access_token}`,
+        'apikey': SUPABASE_ANON
+      },
+      body: JSON.stringify({ nome, email, perfil, senha })
     });
     const result = await res.json();
     if (result.error) throw new Error(result.error);
-    await sb.from('solicitacoes_acesso').update({ status: 'aprovado', updated_at: new Date().toISOString() }).eq('id', id);
-    alert(`✓ Convite enviado para ${email}`);
+
+    await sb.from('solicitacoes_acesso').update({
+      status: 'aprovado',
+      updated_at: new Date().toISOString()
+    }).eq('id', id);
+
+    alert(`✓ Acesso liberado para ${email}. Um e-mail foi enviado com as instruções.`);
     await carregarSolicitacoes();
   } catch (e) {
     alert('✗ Erro: ' + e.message);

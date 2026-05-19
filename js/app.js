@@ -1,3 +1,16 @@
+// ── DIAGNÓSTICO CONVITE ───────────────────────────────────────────────────────
+console.log('HREF:', window.location.href);
+console.log('HASH:', window.location.hash);
+const { data: { session: diagSession } } = await sb.auth.getSession();
+console.log('SESSION:', diagSession);
+const { data: { user: diagUser } } = await sb.auth.getUser();
+console.log('USER:', diagUser);
+if (diagUser) {
+  const { data: porId } = await sb.from('usuarios').select('*').eq('id', diagUser.id).single();
+  console.log('USUARIO por ID:', porId);
+}
+// ─────────────────────────────────────────────────────────────────────────────
+
 // ── INIT ──────────────────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', async () => {
 

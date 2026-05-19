@@ -1,16 +1,3 @@
-// ── DIAGNÓSTICO CONVITE ───────────────────────────────────────────────────────
-console.log('HREF:', window.location.href);
-console.log('HASH:', window.location.hash);
-const { data: { session: diagSession } } = await sb.auth.getSession();
-console.log('SESSION:', diagSession);
-const { data: { user: diagUser } } = await sb.auth.getUser();
-console.log('USER:', diagUser);
-if (diagUser) {
-  const { data: porId } = await sb.from('usuarios').select('*').eq('id', diagUser.id).single();
-  console.log('USUARIO por ID:', porId);
-}
-// ─────────────────────────────────────────────────────────────────────────────
-
 // ── INIT ──────────────────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', async () => {
 
@@ -89,37 +76,14 @@ document.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('btn-cp-voltar').addEventListener('click', fecharDetalheCheckpoint);
   document.getElementById('btn-cp-baixar').addEventListener('click', baixarCheckpoint);
 
-    // ── VERIFICAR SESSÃO ────────────────────────────────────────────────────────
-  sb.auth.onAuthStateChange(async (event, session) => {
-    if (!session) return;
-    currentUser = session.user;
-    if (event === 'SIGNED_IN' || event === 'USER_UPDATED') {
-      const { data: usuario } = await sb.from('usuarios').select('*').eq('id', session.user.id).single();
-      if (!usuario) {
-        await iniciarOnboarding(session.user);
-        return;
-      }
-      currentPerfil = usuario.perfil;
-      if (usuario.perfil === 'vendedor' && !usuario.onboarding_concluido) {
-        await iniciarOnboarding(session.user, usuario);
-        return;
-      }
-      await setupApp(usuario);
-    }
-  });
-
+  // ── VERIFICAR SESSÃO ────────────────────────────────────────────────────────
   const { data: { session } } = await sb.auth.getSession();
   if (session) {
     currentUser = session.user;
     const { data: usuario } = await sb.from('usuarios').select('*').eq('id', session.user.id).single();
     if (usuario) {
       currentPerfil = usuario.perfil;
-      if (usuario.perfil === 'vendedor' && !usuario.onboarding_concluido) {
-        await iniciarOnboarding(session.user, usuario);
-        return;
-      }
       await setupApp(usuario);
     }
   }
 });
-

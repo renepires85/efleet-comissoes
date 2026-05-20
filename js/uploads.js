@@ -225,7 +225,7 @@ async function abrirDetalheCheckpoint(cpId) {
       <td>${pct != null ? `<div class="ramp-bar"><div class="ramp-track"><div class="ramp-fill ${pct < 100 ? 'partial' : ''}" style="width:${pct}%"></div></div><div class="ramp-label">${pct}%</div></div>` : '—'}</td>
       <td class="${d.status === 'calculada' ? 'td-green' : 'td-muted'}">${fmtR(d.comissao)}</td>
       <td><span class="badge ${stBadge}">${d.status}</span></td>
-      <td style="color:var(--efl-red);font-size:12px;max-width:180px;white-space:normal;">${d.erro || '—'}</td>
+            <td style="font-size:12px;max-width:180px;white-space:normal;color:${d.erro ? 'var(--efl-red)' : d.status === 'suspensa' ? 'var(--efl-yellow)' : d.status === 'zerada' ? 'var(--efl-navy-300)' : 'var(--efl-gray-500)'};">${d.erro || (d.status === 'suspensa' ? 'Cliente inadimplente — comissão suspensa' : d.status === 'zerada' ? 'Cliente em churn — comissão zerada' : '—')}</td>
     </tr>`;
   }).join('');
 }

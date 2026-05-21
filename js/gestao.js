@@ -105,7 +105,7 @@ async function carregarTabelaClientes(pFim) {
 
 // ── VALIDAÇÕES GESTÃO ─────────────────────────────────────────────────────────
 async function carregarValidacoesGestao() {
-  const { data } = await sb.from('validacoes_mensais').select('*,prestadores(nome)').order('criado_em', { ascending: false });
+  const { data } = await sb.from('tab-btn-alertas').select('*,prestadores(nome)').order('criado_em', { ascending: false });
   const pend = (data || []).filter(v => v.status === 'pendente').length;
   document.getElementById('g-pendentes').textContent = pend;
   const cont = (data || []).filter(v => v.status === 'contestado').length;

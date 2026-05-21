@@ -122,7 +122,6 @@ async function calcularArquivo(uploadId) {
 
 async function excluirArquivo(uploadId, nome) {
   if (!confirm(`Excluir "${nome}"? Remove todos os dados vinculados.`)) return;
-  await sb.from('checkpoints').delete().eq('upload_id', uploadId);
   const { data: fecIds } = await sb.from('fechamentos').select('id').eq('upload_id', uploadId);
   if (fecIds?.length) await sb.from('comissoes').delete().in('fechamento_id', fecIds.map(f => f.id));
   await sb.from('validacoes_mensais').delete().eq('upload_id', uploadId);

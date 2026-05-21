@@ -4,7 +4,7 @@ async function carregarGestao() {
   const { data: resumos } = await sb.from('vw_resumo_prestador').select('*')
     .gte('periodo_fim', fmtDate(ini)).lte('periodo_fim', fmtDate(fim))
     .order('periodo_fim', { ascending: false });
-
+ 
   if (!resumos || !resumos.length) {
     document.getElementById('tbody-parceiros').innerHTML = '<tr><td colspan="9" class="loading">Nenhum dado no período.</td></tr>';
     document.getElementById('g-total').textContent = 'R$ 0';
@@ -16,13 +16,13 @@ async function carregarGestao() {
     await carregarSelectParceiros();
     return;
   }
-
-  const tp = resumos.reduce((s, r) => s + parseFloat(r.comissao_total || 0), 0);
-  const ts = resumos.reduce((s, r) => s + parseFloat(r.comissao_suspensa || 0), 0);
-  const ta = resumos.reduce((s, r) => s + parseInt(r.clientes_ativos || 0), 0);
-  const enc = resumos.reduce((s, r) => s + parseInt(r.clientes_encerrando || 0), 0);
+ 
+  const tp      = resumos.reduce((s, r) => s + parseFloat(r.comissao_total || 0), 0);
+  const ts      = resumos.reduce((s, r) => s + parseFloat(r.comissao_suspensa || 0), 0);
+  const ta      = resumos.reduce((s, r) => s + parseInt(r.clientes_ativos || 0), 0);
+  const enc     = resumos.reduce((s, r) => s + parseInt(r.clientes_encerrando || 0), 0);
   const inadimp = resumos.reduce((s, r) => s + parseInt(r.clientes_inadimplentes || 0), 0);
-
+ 
   const porParceiro = {};
   resumos.forEach(r => {
     if (!porParceiro[r.prestador_id]) porParceiro[r.prestador_id] = { id: r.prestador_id, nome: r.prestador_nome, fuel: 0, mens: 0, total: 0, susp: 0, clis: 0 };
@@ -32,34 +32,57 @@ async function carregarGestao() {
     porParceiro[r.prestador_id].susp  += parseFloat(r.comissao_suspensa || 0);
     porParceiro[r.prestador_id].clis  += parseInt(r.clientes_ativos || 0);
   });
-
+ 
   document.getElementById('g-total').textContent = fmtR(tp);
   document.getElementById('g-sub1').textContent = `${Object.keys(porParceiro).length} parceiros`;
   document.getElementById('g-ativas').textContent = ta;
   document.getElementById('g-suspensas').textContent = fmtR(ts);
-
- const { data: valsPend } = await sb.from('validacoes_mensais').select('status').in('status', ['pendente', 'contestado']);
-const nPend = (valsPend || []).filter(v => v.status === 'pendente').length;
-const nCont = (valsPend || []).filter(v => v.status === 'contestado').length;
-const ab = document.getElementById('g-alerts');
-const al = [];
-if (nPend > 0) al.push(`⏳ ${nPend} validação(ões) aguardando aprovação`);
-if (nCont > 0) al.push(`✗ ${nCont} contestação(ões) pendente(s)`);
-if (inadimp > 0) al.push(`⚠ ${inadimp} inadimplente(s)`);
-if (enc > 0) al.push(`⚠ ${enc} encerrando`);
-if (al.length > 0) { ab.style.display = 'flex'; ab.textContent = al.join(' · '); ab.style.color = nCont > 0 ? 'var(--efl-red)' : 'var(--efl-yellow)'; }
-else { ab.style.display = 'none'; }
-
-  const { data: vals } = await sb.from('validacoes_mensais').select('*').eq('status', 'pendente');
+ 
+  // ── Alert bar + badge — busca validações do período atual ──
+  const { data: valsPend } = await sb.from('validacoes_mensais').select('status')
+    .gte('periodo_fim', fmtDate(ini)).lte('periodo_fim', fmtDate(fim))
+    .in('status', ['pendente', 'contestado']);
+  const nPend = (valsPend || []).filter(v => v.status === 'pendente').length;
+  const nCont = (valsPend || []).filter(v => v.status === 'contestado').length;
+ 
+  const ab = document.getElementById('g-alerts');
+  const al = [];
+  if (nCont > 0) al.push(`✗ ${nCont} contestação(ões) pendente(s)`);
+  if (nPend > 0) al.push(`⏳ ${nPend} validação(ões) aguardando aprovação`);
+  if (inadimp > 0) al.push(`⚠ ${inadimp} inadimplente(s)`);
+  if (enc > 0) al.push(`⚠ ${enc} encerrando`);
+  if (al.length > 0) {
+    ab.style.display = 'flex';
+    ab.textContent = al.join(' · ');
+    ab.style.color = nCont > 0 ? 'var(--efl-red)' : 'var(--efl-yellow)';
+  } else {
+    ab.style.display = 'none';
+  }
+ 
+  // ── Badge da tab Alertas — só pendentes + contestados do período ──
+  const tabBtn = document.getElementById('tab-btn-alertas');
+  if (tabBtn) {
+    const totalBadge = nPend + nCont;
+    tabBtn.innerHTML = totalBadge > 0
+      ? `Alertas <span style="background:var(--efl-red);color:#fff;border-radius:999px;font-size:10px;font-weight:700;padding:2px 7px;margin-left:6px;">${totalBadge}</span>`
+      : 'Alertas';
+  }
+ 
+  // ── Dias pendente por parceiro ──
+  const { data: vals } = await sb.from('validacoes_mensais').select('*')
+    .gte('periodo_fim', fmtDate(ini)).lte('periodo_fim', fmtDate(fim))
+    .eq('status', 'pendente');
   const valsMap = {};
   (vals || []).forEach(v => {
     const diasPend = Math.floor((new Date() - new Date(v.criado_em)) / (1000 * 60 * 60 * 24));
     valsMap[v.prestador_id] = diasPend;
   });
-
+ 
   document.getElementById('tbody-parceiros').innerHTML = Object.entries(porParceiro).map(([pid, p]) => {
     const dias = valsMap[pid];
-    const diasLabel = dias != null ? `<span class="badge ${dias > 5 ? 'badge-red' : 'badge-yellow'}">${dias}d</span>` : '<span class="td-muted">—</span>';
+    const diasLabel = dias != null
+      ? `<span class="badge ${dias > 5 ? 'badge-red' : 'badge-yellow'}">${dias}d</span>`
+      : '<span class="td-muted">—</span>';
     return `<tr>
       <td><strong style="color:#fff;font-family:var(--efl-font-head);">${p.nome}</strong></td>
       <td class="td-mono">${p.clis}</td>
@@ -74,21 +97,25 @@ else { ab.style.display = 'none'; }
       </td>
     </tr>`;
   }).join('');
-
+ 
   const ultimo = resumos[0].periodo_fim;
   await carregarTabelaClientes(ultimo);
   await carregarValidacoesGestao();
   await carregarSelectParceiros();
-  document.getElementById('alertas-content').innerHTML = buildAlertasHTML(inadimp, enc);
+ 
+  // ── Aba Alertas — passa os 4 parâmetros corretamente ──
+  document.getElementById('alertas-content').innerHTML = buildAlertasHTML(inadimp, enc, nPend, nCont);
 }
-
+ 
 // ── TABELA CLIENTES ───────────────────────────────────────────────────────────
 async function carregarTabelaClientes(pFim) {
   const { data } = await sb.from('vw_extrato_prestador').select('*,prestadores(nome)').eq('periodo_fim', pFim).order('cliente_nome');
   if (!data) return;
   document.getElementById('tbody-clientes').innerHTML = data.map(c => {
     const pct = Math.round(parseFloat(c.fator_ramp) * 100);
-    const cs = c.status === 'suspensa' ? `<span class="td-yellow">Suspensa</span>` : `<span class="td-green">${fmtR(c.comissao_bruta)}</span>`;
+    const cs = c.status === 'suspensa'
+      ? `<span class="td-yellow">Suspensa</span>`
+      : `<span class="td-green">${fmtR(c.comissao_bruta)}</span>`;
     return `<tr>
       <td><strong style="color:#fff;">${c.cliente_nome}</strong></td>
       <td class="td-mono td-muted">${c.cliente_cnpj}</td>
@@ -102,31 +129,57 @@ async function carregarTabelaClientes(pFim) {
     </tr>`;
   }).join('');
 }
-
+ 
 // ── VALIDAÇÕES GESTÃO ─────────────────────────────────────────────────────────
 async function carregarValidacoesGestao() {
-  const { data } = await sb.from('validacoes_mensais').select('*,prestadores(nome)').order('criado_em', { ascending: false });
+  const { data } = await sb.from('validacoes_mensais')
+    .select('*,prestadores(nome)')
+    .order('criado_em', { ascending: false });
+ 
   const pend = (data || []).filter(v => v.status === 'pendente').length;
-  document.getElementById('g-pendentes').textContent = pend;
   const cont = (data || []).filter(v => v.status === 'contestado').length;
-  const tabBtn = document.getElementById('tab-btn-alertas');
-  if (tabBtn) {
-    const total = pend + cont;
-    tabBtn.innerHTML = total > 0
-      ? `Alertas <span style="background:var(--efl-red);color:#fff;border-radius:999px;font-size:10px;font-weight:700;padding:2px 7px;margin-left:6px;">${total}</span>`
-      : 'Alertas';
+  document.getElementById('g-pendentes').textContent = pend;
+ 
+  if (!data || !data.length) {
+    document.getElementById('tbody-validacoes').innerHTML = '<tr><td colspan="9" class="loading">Nenhuma validação.</td></tr>';
+    renderBotoesLote([], []);
+    return;
   }
-  if (!data || !data.length) { document.getElementById('tbody-validacoes').innerHTML = '<tr><td colspan="8" class="loading">Nenhuma validação.</td></tr>'; return; }
+ 
+  // Separa IDs por tipo de ação possível
+  const idsPagarDisponiveis    = data.filter(v => v.status === 'aprovado' || v.status === 'contestado').map(v => v.id);
+  const idsNotificarDisponiveis = data.filter(v => v.status === 'pendente').map(v => v.id);
+ 
+  renderBotoesLote(idsPagarDisponiveis, idsNotificarDisponiveis, data);
+ 
   document.getElementById('tbody-validacoes').innerHTML = data.map(v => {
-    const diasPend = v.status === 'pendente' ? Math.floor((new Date() - new Date(v.criado_em)) / (1000 * 60 * 60 * 24)) : null;
-    const stBadge = v.status === 'aprovado' ? 'badge-green' : v.status === 'contestado' ? 'badge-red' : v.status === 'pago' ? 'badge-teal' : 'badge-yellow';
-    const stLabel = v.status === 'aprovado' ? '✓ Aprovado' : v.status === 'contestado' ? '✗ Contestado' : v.status === 'pago' ? '💰 Pago' : '⏳ Pendente';
-    const acoes = v.status === 'aprovado' || v.status === 'contestado'
+    const diasPend = v.status === 'pendente'
+      ? Math.floor((new Date() - new Date(v.criado_em)) / (1000 * 60 * 60 * 24))
+      : null;
+    const stBadge = v.status === 'aprovado'   ? 'badge-green'
+                  : v.status === 'contestado' ? 'badge-red'
+                  : v.status === 'pago'       ? 'badge-teal'
+                  : 'badge-yellow';
+    const stLabel = v.status === 'aprovado'   ? '✓ Aprovado'
+                  : v.status === 'contestado' ? '✗ Contestado'
+                  : v.status === 'pago'       ? '💰 Pago'
+                  : '⏳ Pendente';
+ 
+    const podePagar    = v.status === 'aprovado' || v.status === 'contestado';
+    const podeNotificar = v.status === 'pendente';
+ 
+    const checkboxCell = (podePagar || podeNotificar)
+      ? `<input type="checkbox" class="val-check" data-id="${v.id}" data-acao="${podePagar ? 'pagar' : 'notificar'}" style="width:16px;height:16px;cursor:pointer;accent-color:var(--efl-green-500);">`
+      : `<span class="td-muted">—</span>`;
+ 
+    const acoes = podePagar
       ? `<button class="btn btn-teal btn-sm" onclick="abrirModalPagamento('${v.id}')">💰 Pagar</button>`
-      : v.status === 'pendente'
+      : podeNotificar
       ? `<button class="btn btn-ghost btn-sm" onclick="notificarParceiroValidacao('${v.prestador_id}')">📧 Notificar</button>`
       : '';
+ 
     return `<tr>
+      <td>${checkboxCell}</td>
       <td><strong style="color:#fff;font-family:var(--efl-font-head);">${v.prestadores?.nome || '—'}</strong></td>
       <td class="td-muted">${formatPeriodo(v.periodo_inicio, v.periodo_fim)}</td>
       <td><span class="badge ${stBadge}">${stLabel}</span></td>
@@ -138,7 +191,102 @@ async function carregarValidacoesGestao() {
     </tr>`;
   }).join('');
 }
-
+ 
+// ── BOTÕES DE LOTE ────────────────────────────────────────────────────────────
+function renderBotoesLote(idsPagar, idsNotificar, data) {
+  const container = document.getElementById('validacoes-acoes-lote');
+  if (!container) return;
+ 
+  const temPagar    = idsPagar.length > 0;
+  const temNotificar = idsNotificar.length > 0;
+ 
+  if (!temPagar && !temNotificar) { container.innerHTML = ''; return; }
+ 
+  container.innerHTML = `
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px;">
+      ${temPagar ? `
+        <button class="btn btn-ghost btn-sm" onclick="selecionarTodos('pagar')" style="border-color:var(--efl-teal);color:var(--efl-teal);">
+          ☑ Selecionar pagáveis (${idsPagar.length})
+        </button>
+      ` : ''}
+      ${temNotificar ? `
+        <button class="btn btn-ghost btn-sm" onclick="selecionarTodos('notificar')" style="border-color:var(--efl-navy-300);color:var(--efl-navy-300);">
+          ☑ Selecionar pendentes (${idsNotificar.length})
+        </button>
+      ` : ''}
+      <button class="btn btn-ghost btn-sm" onclick="desmarcarTodos()" style="color:var(--efl-gray-400);">
+        ✕ Desmarcar todos
+      </button>
+      <button class="btn btn-teal btn-sm" onclick="confirmarAcoesLote()" id="btn-confirmar-lote" style="display:none;">
+        ✓ Confirmar selecionados
+      </button>
+    </div>
+  `;
+}
+ 
+function selecionarTodos(acao) {
+  const checks = document.querySelectorAll(`.val-check[data-acao="${acao}"]`);
+  checks.forEach(c => c.checked = true);
+  atualizarBotaoLote();
+}
+ 
+function desmarcarTodos() {
+  document.querySelectorAll('.val-check').forEach(c => c.checked = false);
+  atualizarBotaoLote();
+}
+ 
+function atualizarBotaoLote() {
+  const selecionados = document.querySelectorAll('.val-check:checked').length;
+  const btn = document.getElementById('btn-confirmar-lote');
+  if (btn) btn.style.display = selecionados > 0 ? 'inline-flex' : 'none';
+}
+ 
+// Delegar evento de change nos checkboxes (chamado no app.js ou aqui)
+document.addEventListener('change', function(e) {
+  if (e.target.classList.contains('val-check')) atualizarBotaoLote();
+});
+ 
+async function confirmarAcoesLote() {
+  const checks = document.querySelectorAll('.val-check:checked');
+  if (!checks.length) return;
+ 
+  const paraPagar    = [...checks].filter(c => c.dataset.acao === 'pagar').map(c => c.dataset.id);
+  const paraNotificar = [...checks].filter(c => c.dataset.acao === 'notificar').map(c => c.dataset.id);
+ 
+  if (paraPagar.length > 0 && paraNotificar.length > 0) {
+    alert('Selecione apenas pagáveis OU apenas pendentes de uma vez, não misture os dois tipos.');
+    return;
+  }
+ 
+  if (paraPagar.length > 0) {
+    // Abre modal de pagamento em lote
+    currentPagamentoIds = paraPagar;
+    currentPagamentoId  = null; // lote, não individual
+    document.getElementById('pag-data').value = new Date().toISOString().split('T')[0];
+    document.getElementById('pag-obs').value = '';
+    document.getElementById('modal-pagamento').style.display = 'flex';
+    return;
+  }
+ 
+  if (paraNotificar.length > 0) {
+    // Notifica todos de uma vez
+    const { data: vals } = await sb.from('validacoes_mensais')
+      .select('*,prestadores(nome,email)')
+      .in('id', paraNotificar);
+    let ok = 0, err = 0;
+    for (const v of (vals || [])) {
+      if (v?.prestadores?.email) {
+        try {
+          await notificarEmail(v.prestador_id, formatPeriodo(v.periodo_inicio, v.periodo_fim));
+          ok++;
+        } catch { err++; }
+      }
+    }
+    alert(`Notificações enviadas: ${ok} OK${err > 0 ? `, ${err} com erro` : ''}.`);
+    await carregarValidacoesGestao();
+  }
+}
+ 
 // ── SELECT PARCEIROS ──────────────────────────────────────────────────────────
 async function carregarSelectParceiros() {
   const { data } = await sb.from('prestadores').select('id,nome').eq('ativo', true).order('nome');
@@ -146,16 +294,16 @@ async function carregarSelectParceiros() {
   if (!data) return;
   sel.innerHTML = '<option value="">Todos os parceiros</option>' + data.map(p => `<option value="${p.id}">${p.nome}</option>`).join('');
 }
-
+ 
 async function filtrarPorParceiro() {
-  const sel = document.getElementById('select-parceiro');
-  const pid = sel.value;
+  const sel  = document.getElementById('select-parceiro');
+  const pid  = sel.value;
   const pnome = pid ? sel.options[sel.selectedIndex].text : null;
   document.getElementById('g-titulo-parceiro').textContent = pid ? `· ${pnome}` : '';
   if (pid) { await carregarExtratoParceiro(pid); }
   else { document.getElementById('extrato-parceiro-content').innerHTML = '<div class="loading">Selecione um parceiro acima</div>'; }
 }
-
+ 
 async function carregarExtratoParceiro(pid) {
   const ct = document.getElementById('extrato-parceiro-content');
   ct.innerHTML = '<div class="loading">Carregando...</div>';
@@ -178,7 +326,9 @@ async function carregarExtratoParceiro(pid) {
       <thead><tr><th>Período</th><th>Cliente</th><th>Produto</th><th>Mês</th><th>Ramp</th><th>Base</th><th>Comissão</th><th>Status</th></tr></thead>
       <tbody>${data.map(c => {
         const pct = Math.round(parseFloat(c.fator_ramp) * 100);
-        const cs = c.status === 'suspensa' ? `<span class="td-yellow">Suspensa</span>` : `<span class="td-green">${fmtR(c.comissao_bruta)}</span>`;
+        const cs = c.status === 'suspensa'
+          ? `<span class="td-yellow">Suspensa</span>`
+          : `<span class="td-green">${fmtR(c.comissao_bruta)}</span>`;
         return `<tr>
           <td class="td-muted td-mono">${formatPeriodo(c.periodo_inicio, c.periodo_fim)}</td>
           <td><strong style="color:#fff;">${c.cliente_nome}</strong></td>
@@ -192,47 +342,72 @@ async function carregarExtratoParceiro(pid) {
       }).join('')}</tbody>
     </table></div>`;
 }
-
+ 
 // ── ALERTAS ───────────────────────────────────────────────────────────────────
 function buildAlertasHTML(inadimp, enc, pendentes, contestados) {
   let h = '';
-  if (contestados > 0) h += `<div style="padding:16px;background:rgba(232,64,64,0.08);border:1px solid rgba(232,64,64,0.2);border-radius:var(--efl-r-md);margin-bottom:12px;font-size:13px;color:var(--efl-red-400);">⚠️ <strong>${contestados} validação(ões) contestada(s)</strong> aguardando sua revisão.</div>`;
-  if (pendentes > 0) h += `<div style="padding:16px;background:rgba(240,192,64,0.08);border:1px solid rgba(240,192,64,0.2);border-radius:var(--efl-r-md);margin-bottom:12px;font-size:13px;color:var(--efl-yellow-400);">🕐 <strong>${pendentes} validação(ões) pendente(s)</strong> aguardando aprovação dos parceiros.</div>`;
-  if (inadimp > 0) h += `<div style="padding:16px;background:rgba(232,64,64,0.08);border:1px solid rgba(232,64,64,0.2);border-radius:var(--efl-r-md);margin-bottom:12px;font-size:13px;color:var(--efl-red-400);">🔴 <strong>${inadimp} parceiro(s) inadimplente(s)</strong> com pagamento em atraso.</div>`;
-  if (enc > 0) h += `<div style="padding:16px;background:rgba(240,192,64,0.08);border:1px solid rgba(240,192,64,0.2);border-radius:var(--efl-r-md);margin-bottom:12px;font-size:13px;color:var(--efl-yellow-400);">⏳ <strong>${enc} contrato(s) encerrando</strong> nos próximos 30 dias.</div>`;
+  if (contestados > 0) h += `<div style="padding:16px;background:rgba(232,64,64,0.08);border:1px solid rgba(232,64,64,0.2);border-radius:var(--efl-r-md);margin-bottom:12px;font-size:13px;color:var(--efl-red);">⚠️ <strong>${contestados} validação(ões) contestada(s)</strong> aguardando sua revisão.</div>`;
+  if (pendentes > 0)   h += `<div style="padding:16px;background:rgba(240,192,64,0.08);border:1px solid rgba(240,192,64,0.2);border-radius:var(--efl-r-md);margin-bottom:12px;font-size:13px;color:var(--efl-yellow);">🕐 <strong>${pendentes} validação(ões) pendente(s)</strong> aguardando aprovação dos parceiros.</div>`;
+  if (inadimp > 0)     h += `<div style="padding:16px;background:rgba(232,64,64,0.08);border:1px solid rgba(232,64,64,0.2);border-radius:var(--efl-r-md);margin-bottom:12px;font-size:13px;color:var(--efl-red);">🔴 <strong>${inadimp} parceiro(s) inadimplente(s)</strong> com pagamento em atraso.</div>`;
+  if (enc > 0)         h += `<div style="padding:16px;background:rgba(240,192,64,0.08);border:1px solid rgba(240,192,64,0.2);border-radius:var(--efl-r-md);margin-bottom:12px;font-size:13px;color:var(--efl-yellow);">⏳ <strong>${enc} contrato(s) encerrando</strong> nos próximos 30 dias.</div>`;
   if (!h) h = `<div style="padding:16px;background:rgba(164,197,87,0.08);border:1px solid rgba(164,197,87,0.2);border-radius:var(--efl-r-md);font-size:13px;color:var(--efl-green-400);">✔ Nenhum alerta no momento.</div>`;
   return h;
 }
-
+ 
 // ── PAGAMENTO ─────────────────────────────────────────────────────────────────
+let currentPagamentoIds = []; // para lote
+ 
 function abrirModalPagamento(validacaoId) {
-  currentPagamentoId = validacaoId;
+  currentPagamentoId  = validacaoId;
+  currentPagamentoIds = [];
   document.getElementById('pag-data').value = new Date().toISOString().split('T')[0];
   document.getElementById('pag-obs').value = '';
   document.getElementById('modal-pagamento').style.display = 'flex';
 }
-function fecharModalPagamento() { document.getElementById('modal-pagamento').style.display = 'none'; }
-
+ 
+function fecharModalPagamento() {
+  document.getElementById('modal-pagamento').style.display = 'none';
+  currentPagamentoId  = null;
+  currentPagamentoIds = [];
+}
+ 
 async function confirmarPagamento() {
-  if (!currentPagamentoId) return;
   const data = document.getElementById('pag-data').value;
   const obs  = document.getElementById('pag-obs').value;
   if (!data) { alert('Informe a data do pagamento.'); return; }
-  const { error } = await sb.from('validacoes_mensais').update({
-    status: 'pago',
-    pago_em: new Date(data + 'T12:00:00').toISOString(),
-    pago_por: currentUser.id,
-    observacao: obs || null
-  }).eq('id', currentPagamentoId);
-  if (error) { alert('Erro: ' + error.message); return; }
-  fecharModalPagamento();
-  const { data: val } = await sb.from('validacoes_mensais').select('*,prestadores(nome,email)').eq('id', currentPagamentoId).single();
-  if (val?.prestadores?.email) {
-    await notificarEmail(val.prestador_id, formatPeriodo(val.periodo_inicio, val.periodo_fim));
+ 
+  // Determina se é individual ou lote
+  const ids = currentPagamentoIds.length > 0 ? currentPagamentoIds : (currentPagamentoId ? [currentPagamentoId] : []);
+  if (!ids.length) return;
+ 
+  const pagoEm = new Date(data + 'T12:00:00').toISOString();
+  let erros = 0;
+ 
+  for (const id of ids) {
+    const { data: updated, error } = await sb.from('validacoes_mensais').update({
+      status: 'pago',
+      pago_em: pagoEm,
+      pago_por: currentUser.id,
+      observacao: obs || null
+    }).eq('id', id).select();
+ 
+    if (error) { console.error('Erro ao pagar id', id, error); erros++; continue; }
+    if (!updated || updated.length === 0) { console.warn('Update não afetou nenhuma linha para id', id); erros++; continue; }
+ 
+    // Notifica parceiro
+    const { data: val } = await sb.from('validacoes_mensais')
+      .select('*,prestadores(nome,email)')
+      .eq('id', id).single();
+    if (val?.prestadores?.email) {
+      await notificarEmail(val.prestador_id, formatPeriodo(val.periodo_inicio, val.periodo_fim));
+    }
   }
+ 
+  fecharModalPagamento();
+  if (erros > 0) alert(`${erros} pagamento(s) não foram processados. Verifique o console.`);
   await carregarValidacoesGestao();
 }
-
+ 
 // ── EXPORTAR RELATÓRIO ────────────────────────────────────────────────────────
 async function exportarRelatorio() {
   const { ini, fim } = getPeriodoDates(periodoAtual);

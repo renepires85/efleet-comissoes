@@ -194,11 +194,13 @@ async function carregarExtratoParceiro(pid) {
 }
 
 // ── ALERTAS ───────────────────────────────────────────────────────────────────
-function buildAlertasHTML(inadimp, enc) {
+function buildAlertasHTML(inadimp, enc, pendentes, contestados) {
   let h = '';
-  if (inadimp > 0) h += `<div style="padding:16px;background:rgba(232,64,64,0.08);border:1px solid rgba(232,64,64,0.2);border-radius:var(--efl-r-md);margin-bottom:12px;font-size:13px;color:var(--efl-red);font-weight:600;">🔴 ${inadimp} cliente(s) inadimplente(s)</div>`;
-  if (enc > 0) h += `<div style="padding:16px;background:rgba(240,192,64,0.08);border:1px solid rgba(240,192,64,0.2);border-radius:var(--efl-r-md);margin-bottom:12px;font-size:13px;color:var(--efl-yellow);font-weight:600;">⚠ ${enc} cliente(s) no mês 11</div>`;
-  if (!h) h = `<div style="padding:16px;background:rgba(164,197,87,0.08);border:1px solid rgba(164,197,87,0.2);border-radius:var(--efl-r-md);font-size:13px;color:var(--efl-green-400);">✓ Nenhum alerta</div>`;
+  if (contestados > 0) h += `<div style="padding:16px;background:rgba(232,64,64,0.08);border:1px solid rgba(232,64,64,0.2);border-radius:var(--efl-r-md);margin-bottom:12px;font-size:13px;color:var(--efl-red-400);">⚠️ <strong>${contestados} validação(ões) contestada(s)</strong> aguardando sua revisão.</div>`;
+  if (pendentes > 0) h += `<div style="padding:16px;background:rgba(240,192,64,0.08);border:1px solid rgba(240,192,64,0.2);border-radius:var(--efl-r-md);margin-bottom:12px;font-size:13px;color:var(--efl-yellow-400);">🕐 <strong>${pendentes} validação(ões) pendente(s)</strong> aguardando aprovação dos parceiros.</div>`;
+  if (inadimp > 0) h += `<div style="padding:16px;background:rgba(232,64,64,0.08);border:1px solid rgba(232,64,64,0.2);border-radius:var(--efl-r-md);margin-bottom:12px;font-size:13px;color:var(--efl-red-400);">🔴 <strong>${inadimp} parceiro(s) inadimplente(s)</strong> com pagamento em atraso.</div>`;
+  if (enc > 0) h += `<div style="padding:16px;background:rgba(240,192,64,0.08);border:1px solid rgba(240,192,64,0.2);border-radius:var(--efl-r-md);margin-bottom:12px;font-size:13px;color:var(--efl-yellow-400);">⏳ <strong>${enc} contrato(s) encerrando</strong> nos próximos 30 dias.</div>`;
+  if (!h) h = `<div style="padding:16px;background:rgba(164,197,87,0.08);border:1px solid rgba(164,197,87,0.2);border-radius:var(--efl-r-md);font-size:13px;color:var(--efl-green-400);">✔ Nenhum alerta no momento.</div>`;
   return h;
 }
 

@@ -47,7 +47,7 @@ if (nPend > 0) al.push(`⏳ ${nPend} validação(ões) aguardando aprovação`);
 if (nCont > 0) al.push(`✗ ${nCont} contestação(ões) pendente(s)`);
 if (inadimp > 0) al.push(`⚠ ${inadimp} inadimplente(s)`);
 if (enc > 0) al.push(`⚠ ${enc} encerrando`);
-if (al.length > 0) { ab.style.display = 'flex'; ab.textContent = al.join(' · '); }
+if (al.length > 0) { ab.style.display = 'flex'; ab.textContent = al.join(' · '); ab.style.color = nCont > 0 ? 'var(--efl-red)' : 'var(--efl-yellow)'; }
 else { ab.style.display = 'none'; }
 
   const { data: vals } = await sb.from('validacoes_mensais').select('*').eq('status', 'pendente');
@@ -121,11 +121,11 @@ if (tabBtn) {
     const diasPend = v.status === 'pendente' ? Math.floor((new Date() - new Date(v.criado_em)) / (1000 * 60 * 60 * 24)) : null;
     const stBadge = v.status === 'aprovado' ? 'badge-green' : v.status === 'contestado' ? 'badge-red' : v.status === 'pago' ? 'badge-teal' : 'badge-yellow';
     const stLabel = v.status === 'aprovado' ? '✓ Aprovado' : v.status === 'contestado' ? '✗ Contestado' : v.status === 'pago' ? '💰 Pago' : '⏳ Pendente';
-    const acoes = v.status === 'aprovado'
-      ? `<button class="btn btn-teal btn-sm" onclick="abrirModalPagamento('${v.id}')">💰 Pagar</button>`
-      : v.status === 'pendente'
-      ? `<button class="btn btn-ghost btn-sm" onclick="notificarParceiroValidacao('${v.prestador_id}')">📧 Notificar</button>`
-      : '';
+    const acoes = v.status === 'aprovado' || v.status === 'contestado'
+  ? `<button class="btn btn-teal btn-sm" onclick="abrirModalPagamento('${v.id}')">💰 Pagar</button>`
+  : v.status === 'pendente'
+  ? `<button class="btn btn-ghost btn-sm" onclick="notificarParceiroValidacao('${v.prestador_id}')">📧 Notificar</button>`
+  : '';
     return `<tr>
       <td><strong style="color:#fff;font-family:var(--efl-font-head);">${v.prestadores?.nome || '—'}</strong></td>
       <td class="td-muted">${formatPeriodo(v.periodo_inicio, v.periodo_fim)}</td>

@@ -105,27 +105,27 @@ async function carregarTabelaClientes(pFim) {
 
 // ── VALIDAÇÕES GESTÃO ─────────────────────────────────────────────────────────
 async function carregarValidacoesGestao() {
-  const { data } = await sb.from('tab-btn-alertas').select('*,prestadores(nome)').order('criado_em', { ascending: false });
+  const { data } = await sb.from('validacoes_mensais').select('*,prestadores(nome)').order('criado_em', { ascending: false });
   const pend = (data || []).filter(v => v.status === 'pendente').length;
   document.getElementById('g-pendentes').textContent = pend;
   const cont = (data || []).filter(v => v.status === 'contestado').length;
-const tabBtn = document.getElementById('tab-btn-validacoes');
-if (tabBtn) {
-  const total = pend + cont;
-  tabBtn.innerHTML = total > 0
-    ? `Validações <span style="background:var(--efl-red);color:#fff;border-radius:999px;font-size:10px;font-weight:700;padding:2px 7px;margin-left:6px;">${total}</span>`
-    : 'Validações';
-}
+  const tabBtn = document.getElementById('tab-btn-alertas');
+  if (tabBtn) {
+    const total = pend + cont;
+    tabBtn.innerHTML = total > 0
+      ? `Alertas <span style="background:var(--efl-red);color:#fff;border-radius:999px;font-size:10px;font-weight:700;padding:2px 7px;margin-left:6px;">${total}</span>`
+      : 'Alertas';
+  }
   if (!data || !data.length) { document.getElementById('tbody-validacoes').innerHTML = '<tr><td colspan="8" class="loading">Nenhuma validação.</td></tr>'; return; }
   document.getElementById('tbody-validacoes').innerHTML = data.map(v => {
     const diasPend = v.status === 'pendente' ? Math.floor((new Date() - new Date(v.criado_em)) / (1000 * 60 * 60 * 24)) : null;
     const stBadge = v.status === 'aprovado' ? 'badge-green' : v.status === 'contestado' ? 'badge-red' : v.status === 'pago' ? 'badge-teal' : 'badge-yellow';
     const stLabel = v.status === 'aprovado' ? '✓ Aprovado' : v.status === 'contestado' ? '✗ Contestado' : v.status === 'pago' ? '💰 Pago' : '⏳ Pendente';
     const acoes = v.status === 'aprovado' || v.status === 'contestado'
-  ? `<button class="btn btn-teal btn-sm" onclick="abrirModalPagamento('${v.id}')">💰 Pagar</button>`
-  : v.status === 'pendente'
-  ? `<button class="btn btn-ghost btn-sm" onclick="notificarParceiroValidacao('${v.prestador_id}')">📧 Notificar</button>`
-  : '';
+      ? `<button class="btn btn-teal btn-sm" onclick="abrirModalPagamento('${v.id}')">💰 Pagar</button>`
+      : v.status === 'pendente'
+      ? `<button class="btn btn-ghost btn-sm" onclick="notificarParceiroValidacao('${v.prestador_id}')">📧 Notificar</button>`
+      : '';
     return `<tr>
       <td><strong style="color:#fff;font-family:var(--efl-font-head);">${v.prestadores?.nome || '—'}</strong></td>
       <td class="td-muted">${formatPeriodo(v.periodo_inicio, v.periodo_fim)}</td>

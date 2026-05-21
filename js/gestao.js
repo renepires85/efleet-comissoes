@@ -276,11 +276,12 @@ async function confirmarAcoesLote() {
     let ok = 0, err = 0;
     for (const v of (vals || [])) {
       if (v?.prestadores?.email) {
-        try {
-          await notificarEmail(v.prestador_id, formatPeriodo(v.periodo_inicio, v.periodo_fim));
-          ok++;
-        } catch { err++; }
-      }
+  try {
+    await notificarEmail(v.prestador_id, formatPeriodo(v.periodo_inicio, v.periodo_fim));
+    ok++;
+    await new Promise(r => setTimeout(r, 500));
+  } catch { err++; }
+}
     }
     alert(`Notificações enviadas: ${ok} OK${err > 0 ? `, ${err} com erro` : ''}.`);
     await carregarValidacoesGestao();

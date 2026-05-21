@@ -1,7 +1,7 @@
 // ── NOTIFICAR PARCEIRO ────────────────────────────────────────────────────────
 async function notificarEmail(prestadorId, periodo) {
   try {
-    await fetch(CLEVER_URL, {
+    const res = await fetch(CLEVER_URL, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -14,8 +14,10 @@ async function notificarEmail(prestadorId, periodo) {
         periodo
       })
     });
+    await res.text();
   } catch (e) {
     console.error('Erro ao notificar:', e);
+    throw e;
   }
 }
 
@@ -38,7 +40,7 @@ async function notificarParceiroValidacao(prestadorId) {
 // ── NOTIFICAR GESTÃO (nova solicitação) ───────────────────────────────────────
 async function notificarGestaoSolicitacao(solicitacao) {
   try {
-    await fetch(CLEVER_URL, {
+    const res = await fetch(CLEVER_URL, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -47,6 +49,7 @@ async function notificarGestaoSolicitacao(solicitacao) {
       },
       body: JSON.stringify({ action: 'nova_solicitacao', solicitacao })
     });
+    await res.text();
   } catch (e) {
     console.error('Erro ao notificar gestão:', e);
   }

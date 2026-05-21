@@ -38,13 +38,17 @@ async function carregarGestao() {
   document.getElementById('g-ativas').textContent = ta;
   document.getElementById('g-suspensas').textContent = fmtR(ts);
 
-  if (inadimp > 0 || enc > 0) {
-    const ab = document.getElementById('g-alerts'); ab.style.display = 'flex';
-    const al = [];
-    if (inadimp > 0) al.push(`⚠ ${inadimp} inadimplente(s)`);
-    if (enc > 0) al.push(`⚠ ${enc} encerrando`);
-    ab.textContent = al.join(' · ');
-  }
+ const { data: valsPend } = await sb.from('validacoes_mensais').select('status').in('status', ['pendente', 'contestado']);
+const nPend = (valsPend || []).filter(v => v.status === 'pendente').length;
+const nCont = (valsPend || []).filter(v => v.status === 'contestado').length;
+const ab = document.getElementById('g-alerts');
+const al = [];
+if (nPend > 0) al.push(`⏳ ${nPend} validação(ões) aguardando aprovação`);
+if (nCont > 0) al.push(`✗ ${nCont} contestação(ões) pendente(s)`);
+if (inadimp > 0) al.push(`⚠ ${inadimp} inadimplente(s)`);
+if (enc > 0) al.push(`⚠ ${enc} encerrando`);
+if (al.length > 0) { ab.style.display = 'flex'; ab.textContent = al.join(' · '); }
+else { ab.style.display = 'none'; }
 
   const { data: vals } = await sb.from('validacoes_mensais').select('*').eq('status', 'pendente');
   const valsMap = {};
@@ -104,6 +108,14 @@ async function carregarValidacoesGestao() {
   const { data } = await sb.from('validacoes_mensais').select('*,prestadores(nome)').order('criado_em', { ascending: false });
   const pend = (data || []).filter(v => v.status === 'pendente').length;
   document.getElementById('g-pendentes').textContent = pend;
+  const cont = (data || []).filter(v => v.status === 'contestado').length;
+const tabBtn = document.getElementById('tab-btn-validacoes');
+if (tabBtn) {
+  const total = pend + cont;
+  tabBtn.innerHTML = total > 0
+    ? `Validações <span style="background:var(--efl-red);color:#fff;border-radius:999px;font-size:10px;font-weight:700;padding:2px 7px;margin-left:6px;">${total}</span>`
+    : 'Validações';
+}
   if (!data || !data.length) { document.getElementById('tbody-validacoes').innerHTML = '<tr><td colspan="8" class="loading">Nenhuma validação.</td></tr>'; return; }
   document.getElementById('tbody-validacoes').innerHTML = data.map(v => {
     const diasPend = v.status === 'pendente' ? Math.floor((new Date() - new Date(v.criado_em)) / (1000 * 60 * 60 * 24)) : null;

@@ -161,7 +161,7 @@ async function carregarExtratoPeriodo(pid) {
   document.getElementById('tbody-vendedor').innerHTML = ext.map(c => {
     const pct = Math.round(parseFloat(c.fator_ramp) * 100);
     const cs  = c.status === 'suspensa' ? `<span class="td-yellow">Suspensa</span>` : `<span class="td-green">${fmtR(c.comissao_bruta)}</span>`;
-    const enc = c.mes_curva >= 11 ? `<span class="badge badge-yellow" style="margin-left:4px;font-size:10px;">⚠</span>` : '';
+    const enc = c.mes_curva >= 11 ? `<span class="badge badge-yellow" style="margin-left:4px;font-size:10px;cursor:pointer;position:relative;" onclick="toggleTooltip(this)">⚠<span style="display:none;position:absolute;bottom:calc(100% + 6px);left:50%;transform:translateX(-50%);background:#1a2535;color:#fff;font-size:11px;font-weight:400;padding:8px 12px;border-radius:6px;white-space:nowrap;z-index:999;box-shadow:0 4px 12px rgba(0,0,0,0.4);border:1px solid rgba(255,255,255,0.1);">⏳ Cliente encerrando em breve.<br>Janela de comissão termina no mês 12.</span></span>` : '';
     return `<tr>
       <td><strong style="color:#fff;">${c.cliente_nome}</strong></td>
       <td><span class="badge ${c.produto === 'FUEL' ? 'badge-blue' : 'badge-green'}">${c.produto}</span></td>
@@ -371,4 +371,10 @@ async function exportarExtratoPDF() {
   w.document.close();
   w.print();
 }
- 
+function toggleTooltip(el) {
+  const tip = el.querySelector('span');
+  if (!tip) return;
+  const visible = tip.style.display === 'block';
+  document.querySelectorAll('.badge-yellow span').forEach(t => t.style.display = 'none');
+  tip.style.display = visible ? 'none' : 'block';
+} 

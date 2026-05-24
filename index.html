@@ -394,7 +394,25 @@
   </div>
 </div>
 
-<!-- MODAL: PAGAMENTO -->
+  <!-- MODAL: APROVAR -->
+<div class="modal-overlay" id="modal-aprovar" style="display:none;">
+  <div class="modal-box" style="width:440px;" onclick="event.stopPropagation()">
+    <button class="modal-close" onclick="fecharModalAprovar()">×</button>
+    <div class="modal-title" id="modal-aprovar-titulo">Confirmar aprovação</div>
+    <div class="modal-sub">Você está confirmando a aprovação das comissões do período selecionado.</div>
+    <div style="margin:20px 0;padding:16px;background:rgba(164,197,87,0.08);border:1px solid rgba(164,197,87,0.2);border-radius:var(--efl-r-md);">
+      <div style="font-size:12px;color:var(--efl-gray-400);margin-bottom:4px;">TOTAL A RECEBER</div>
+      <div style="font-size:24px;font-weight:800;font-family:var(--efl-font-head);color:var(--efl-green-400);" id="modal-aprovar-total">—</div>
+      <div style="font-size:12px;color:var(--efl-gray-400);margin-top:8px;">💰 Pagamento previsto até o dia 20 do mês seguinte</div>
+    </div>
+    <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:8px;">
+      <button class="btn btn-ghost btn-md" onclick="fecharModalAprovar()">Cancelar</button>
+      <button class="btn btn-primary btn-md" onclick="confirmarAprovacao()">✓ Confirmar aprovação</button>
+    </div>
+  </div>
+</div>
+
+  <!-- MODAL: PAGAMENTO -->
 <div class="modal-overlay" id="modal-pagamento">
   <div class="modal-box" style="width:440px;" onclick="event.stopPropagation()">
     <button class="modal-close" id="btn-fechar-pagamento">✕</button>

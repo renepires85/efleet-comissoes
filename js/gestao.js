@@ -410,7 +410,7 @@ function buildAlertasHTML(alertas) {
  
 // ── PAGAMENTO ─────────────────────────────────────────────────────────────────
 let currentPagamentoIds = [];
- 
+
 function abrirModalPagamento(validacaoId) {
   currentPagamentoId  = validacaoId;
   currentPagamentoIds = [];
@@ -418,24 +418,24 @@ function abrirModalPagamento(validacaoId) {
   document.getElementById('pag-obs').value = '';
   document.getElementById('modal-pagamento').style.display = 'flex';
 }
- 
+
 function fecharModalPagamento() {
   document.getElementById('modal-pagamento').style.display = 'none';
   currentPagamentoId  = null;
   currentPagamentoIds = [];
 }
- 
+
 async function confirmarPagamento() {
   const data = document.getElementById('pag-data').value;
   const obs  = document.getElementById('pag-obs').value;
   if (!data) { alert('Informe a data do pagamento.'); return; }
- 
+
   const ids = currentPagamentoIds.length > 0 ? currentPagamentoIds : (currentPagamentoId ? [currentPagamentoId] : []);
   if (!ids.length) return;
- 
+
   const pagoEm = new Date(data + 'T12:00:00').toISOString();
   let erros = 0;
- 
+
   for (const id of ids) {
     const { data: updated, error } = await sb.from('validacoes_mensais').update({
       status: 'pago',
@@ -443,20 +443,23 @@ async function confirmarPagamento() {
       pago_por: currentUser.id,
       observacao: obs || null
     }).eq('id', id).select();
- 
+
     if (error) { console.error('Erro ao pagar id', id, error); erros++; continue; }
     if (!updated || updated.length === 0) { console.warn('Update não afetou nenhuma linha para id', id); erros++; continue; }
- 
+
     const { data: val } = await sb.from('validacoes_mensais')
       .select('*,prestadores(nome,email)')
       .eq('id', id).single();
+
     if (val?.prestadores?.email) {
-  try {
-    await notificarEmail(val.prestador_id, formatPeriodo(val.periodo_inicio, val.periodo_fim));
-  } catch (e) {
-    console.warn('Notificação falhou mas pagamento foi registrado:', e);
+      try {
+        await notificarEmail(val.prestador_id, formatPeriodo(val.periodo_inicio, val.periodo_fim));
+      } catch (e) {
+        console.warn('Notificação falhou mas pagamento foi registrado:', e);
+      }
+    }
   }
- 
+
   fecharModalPagamento();
   if (erros > 0) alert(`${erros} pagamento(s) não foram processados. Verifique o console.`);
   await carregarValidacoesGestao();

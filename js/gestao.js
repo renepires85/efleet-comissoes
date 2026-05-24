@@ -38,7 +38,6 @@ async function carregarGestao() {
   document.getElementById('g-ativas').textContent = ta;
   document.getElementById('g-suspensas').textContent = fmtR(ts);
  
-  // ── Busca todas as validações não pagas para calcular alertas ──
   const { data: todasVals } = await sb.from('validacoes_mensais')
     .select('*,prestadores(nome)')
     .not('status', 'eq', 'pago')
@@ -56,7 +55,6 @@ async function carregarGestao() {
   (todasVals || []).forEach(v => {
     const periodoFim = new Date(v.periodo_fim + 'T12:00:00');
     const m1 = new Date(periodoFim.getFullYear(), periodoFim.getMonth() + 1, 1);
-    const prazoAprovacao = new Date(m1.getFullYear(), m1.getMonth(), 20);
     const m2 = new Date(periodoFim.getFullYear(), periodoFim.getMonth() + 2, 1);
     const prazoPagamento = new Date(m2.getFullYear(), m2.getMonth(), 10);
  
@@ -76,7 +74,6 @@ async function carregarGestao() {
     }
   });
  
-  // ── Alert bar ──
   const ab = document.getElementById('g-alerts');
   const al = [];
   if (alertas.contestadas.length > 0) al.push(`✗ ${alertas.contestadas.length} contestação(ões)`);
@@ -93,7 +90,6 @@ async function carregarGestao() {
     ab.style.display = 'none';
   }
  
-  // ── Badge da tab Alertas ──
   const tabBtn = document.getElementById('tab-btn-alertas');
   if (tabBtn) {
     const totalBadge = alertas.contestadas.length + alertas.pagamentoAtrasado.length + alertas.prazoVencendo.length;
@@ -102,7 +98,6 @@ async function carregarGestao() {
       : 'Alertas';
   }
  
-  // ── Dias pendente por parceiro ──
   const { data: vals } = await sb.from('validacoes_mensais').select('*')
     .gte('periodo_fim', fmtDate(ini)).lte('periodo_fim', fmtDate(fim))
     .eq('status', 'pendente');
@@ -136,7 +131,6 @@ async function carregarGestao() {
   await carregarTabelaClientes(ultimo);
   await carregarValidacoesGestao();
   await carregarSelectParceiros();
- 
   document.getElementById('alertas-content').innerHTML = buildAlertasHTML(alertas);
 }
  
@@ -410,7 +404,7 @@ function buildAlertasHTML(alertas) {
  
 // ── PAGAMENTO ─────────────────────────────────────────────────────────────────
 let currentPagamentoIds = [];
-
+ 
 function abrirModalPagamento(validacaoId) {
   currentPagamentoId  = validacaoId;
   currentPagamentoIds = [];
@@ -418,24 +412,24 @@ function abrirModalPagamento(validacaoId) {
   document.getElementById('pag-obs').value = '';
   document.getElementById('modal-pagamento').style.display = 'flex';
 }
-
+ 
 function fecharModalPagamento() {
   document.getElementById('modal-pagamento').style.display = 'none';
   currentPagamentoId  = null;
   currentPagamentoIds = [];
 }
-
+ 
 async function confirmarPagamento() {
   const data = document.getElementById('pag-data').value;
   const obs  = document.getElementById('pag-obs').value;
   if (!data) { alert('Informe a data do pagamento.'); return; }
-
+ 
   const ids = currentPagamentoIds.length > 0 ? currentPagamentoIds : (currentPagamentoId ? [currentPagamentoId] : []);
   if (!ids.length) return;
-
+ 
   const pagoEm = new Date(data + 'T12:00:00').toISOString();
   let erros = 0;
-
+ 
   for (const id of ids) {
     const { data: updated, error } = await sb.from('validacoes_mensais').update({
       status: 'pago',
@@ -443,30 +437,31 @@ async function confirmarPagamento() {
       pago_por: currentUser.id,
       observacao: obs || null
     }).eq('id', id).select();
-
+ 
     if (error) { console.error('Erro ao pagar id', id, error); erros++; continue; }
     if (!updated || updated.length === 0) { console.warn('Update não afetou nenhuma linha para id', id); erros++; continue; }
-
+ 
     const { data: val } = await sb.from('validacoes_mensais')
       .select('*,prestadores(nome,email)')
       .eq('id', id).single();
-
+ 
     if (val?.prestadores?.email) {
       const emailPromise = notificarEmail(val.prestador_id, formatPeriodo(val.periodo_inicio, val.periodo_fim));
       const timeout = new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 3000));
       await Promise.race([emailPromise, timeout]).catch(e => {
-        console.warn('Notificação falhou ou timeout:', e);
+        console.warn('Notificacao falhou ou timeout:', e);
       });
     }
-
+  }
+ 
   fecharModalPagamento();
   const total = ids.length - erros;
   if (total === 1) {
-    alert('✓ Pagamento registrado com sucesso!');
+    alert('Pagamento registrado com sucesso!');
   } else if (total > 1) {
-    alert(`✓ ${total} pagamentos registrados com sucesso!`);
+    alert(`${total} pagamentos registrados com sucesso!`);
   }
-  if (erros > 0) alert(`⚠ ${erros} pagamento(s) não foram processados.`);
+  if (erros > 0) alert(`${erros} pagamento(s) nao foram processados.`);
   await carregarValidacoesGestao();
 }
  
@@ -477,7 +472,7 @@ async function exportarRelatorio() {
     .select('*,prestadores(nome,banco,agencia,conta,tipo_conta,pix,email)')
     .gte('periodo_fim', fmtDate(ini)).lte('periodo_fim', fmtDate(fim))
     .order('periodo_fim', { ascending: false });
-  if (!vals || !vals.length) { alert('Nenhum dado no período.'); return; }
+  if (!vals || !vals.length) { alert('Nenhum dado no periodo.'); return; }
   const { data: resumos } = await sb.from('vw_resumo_prestador').select('*')
     .gte('periodo_fim', fmtDate(ini)).lte('periodo_fim', fmtDate(fim));
   const totMap = {};
@@ -487,11 +482,11 @@ async function exportarRelatorio() {
   });
   const wb = XLSX.utils.book_new();
   const rows = [
-    ['RELATÓRIO DE PAGAMENTO — eFleet Digital'],
-    [`Período: ${new Date(fmtDate(ini)).toLocaleDateString('pt-BR')} a ${new Date(fmtDate(fim)).toLocaleDateString('pt-BR')}`],
+    ['RELATORIO DE PAGAMENTO - eFleet Digital'],
+    [`Periodo: ${new Date(fmtDate(ini)).toLocaleDateString('pt-BR')} a ${new Date(fmtDate(fim)).toLocaleDateString('pt-BR')}`],
     [`Gerado em: ${new Date().toLocaleString('pt-BR')}`],
     [],
-    ['Parceiro', 'E-mail', 'Banco', 'Agência', 'Conta', 'Tipo', 'PIX', 'Status', 'Total a pagar'],
+    ['Parceiro', 'E-mail', 'Banco', 'Agencia', 'Conta', 'Tipo', 'PIX', 'Status', 'Total a pagar'],
   ];
   const prestadoresVistos = new Set();
   vals.forEach(v => {
@@ -499,13 +494,13 @@ async function exportarRelatorio() {
     if (prestadoresVistos.has(pid)) return;
     prestadoresVistos.add(pid);
     const p = v.prestadores || {};
-    rows.push([p.nome || '—', p.email || '—', p.banco || '—', p.agencia || '—', p.conta || '—', p.tipo_conta || '—', p.pix || '—', v.status, totMap[pid] || 0]);
+    rows.push([p.nome || '-', p.email || '-', p.banco || '-', p.agencia || '-', p.conta || '-', p.tipo_conta || '-', p.pix || '-', v.status, totMap[pid] || 0]);
   });
   rows.push([]);
   const total = Object.values(totMap).reduce((s, v) => s + v, 0);
   rows.push(['', '', '', '', '', '', '', 'TOTAL', total]);
   const ws = XLSX.utils.aoa_to_sheet(rows);
   ws['!cols'] = [{ wch: 22 }, { wch: 24 }, { wch: 14 }, { wch: 10 }, { wch: 12 }, { wch: 12 }, { wch: 22 }, { wch: 12 }, { wch: 16 }];
-  XLSX.utils.book_append_sheet(wb, ws, 'Relatório');
+  XLSX.utils.book_append_sheet(wb, ws, 'Relatorio');
   XLSX.writeFile(wb, `relatorio_pagamento_${fmtDate(fim)}.xlsx`);
 }

@@ -137,7 +137,7 @@ async function carregarExtratoPeriodo(pid) {
   const card = document.getElementById('validacao-card');
   const btnA = document.getElementById('btn-aprovar');
   const btnC = document.getElementById('btn-contestar');
-  const periodoLabel = vm ? formatPeriodo(vm.periodo_inicio, vm.periodo_fim) : '—';
+  const periodoValidacao = vm ? formatPeriodo(vm.periodo_inicio, vm.periodo_fim) : '—';
   const totalPeriodo = ext.filter(e => e.status === 'calculada').reduce((s, e) => s + parseFloat(e.comissao_bruta || 0), 0);
 
   if (vm) {
@@ -145,7 +145,7 @@ async function carregarExtratoPeriodo(pid) {
     card.style.display = 'block';
     card.className = `validacao-card ${vm.status}`;
     if (vm.status === 'pendente') {
-      document.getElementById('vc-titulo').textContent = `⏳ Comissões de ${periodoLabel} prontas para validação`;
+      document.getElementById('vc-titulo').textContent = `⏳ Comissões de ${periodoValidacao} prontas para validação`;
       document.getElementById('vc-sub').textContent   = 'Confira o detalhamento abaixo e aprove ou conteste os valores até o dia 20.';
       document.getElementById('v-validacao-badge').textContent = '⏳ Aguardando aprovação';
       document.getElementById('v-validacao-badge').className   = 'badge badge-yellow';

@@ -175,3 +175,4 @@ export default async (req: Request) => {
   return Response.json({ error: "Action inválida" }, { status: 400 });
 };
  
+

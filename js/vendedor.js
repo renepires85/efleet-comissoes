@@ -132,18 +132,20 @@ async function carregarExtratoPeriodo(pid) {
   const clis = new Set(ext.filter(e => e.status === 'calculada').map(e => e.cliente_cnpj)).size;
   document.getElementById('v-clientes-badge').textContent = `${clis} clientes ativos`;
  
-  // Validação — usa a mais recente do período
+// Validação — usa a mais recente do período
   const vm   = vals?.[0];
   const card = document.getElementById('validacao-card');
   const btnA = document.getElementById('btn-aprovar');
   const btnC = document.getElementById('btn-contestar');
- 
+  const periodoLabel = vm ? formatPeriodo(vm.periodo_inicio, vm.periodo_fim) : '—';
+  const totalPeriodo = ext.filter(e => e.status === 'calculada').reduce((s, e) => s + parseFloat(e.comissao_bruta || 0), 0);
+
   if (vm) {
     currentValidacaoId = vm.id;
     card.style.display = 'block';
     card.className = `validacao-card ${vm.status}`;
     if (vm.status === 'pendente') {
-      document.getElementById('vc-titulo').textContent = '⏳ Comissões prontas para validação';
+      document.getElementById('vc-titulo').textContent = `⏳ Comissões de ${periodoLabel} prontas para validação`;
       document.getElementById('vc-sub').textContent   = 'Confira o detalhamento abaixo e aprove ou conteste os valores até o dia 20.';
       document.getElementById('v-validacao-badge').textContent = '⏳ Aguardando aprovação';
       document.getElementById('v-validacao-badge').className   = 'badge badge-yellow';
@@ -170,7 +172,7 @@ async function carregarExtratoPeriodo(pid) {
   } else {
     card.style.display = 'none'; btnA.style.display = 'none'; btnC.style.display = 'none';
   }
- 
+
   document.getElementById('tbody-vendedor').innerHTML = ext.map(c => {
     const pct = Math.round(parseFloat(c.fator_ramp) * 100);
     const cs  = c.status === 'suspensa' ? `<span class="td-yellow">Suspensa</span>` : `<span class="td-green">${fmtR(c.comissao_bruta)}</span>`;
@@ -186,7 +188,6 @@ async function carregarExtratoPeriodo(pid) {
     </tr>`;
   }).join('');
 }
- 
 // ── GRÁFICOS ──────────────────────────────────────────────────────────────────
 async function carregarGraficos(pid) {
   const container = document.getElementById('v-graficos');
@@ -309,10 +310,28 @@ async function setGraficoPeriodo(n) {
 }
  
 // ── APROVAR ───────────────────────────────────────────────────────────────────
-async function aprovarComissoes() {
+function aprovarComissoes() {
   if (!currentValidacaoId) return;
-  const { error } = await sb.from('validacoes_mensais').update({ status: 'aprovado', aprovado_em: new Date().toISOString() }).eq('id', currentValidacaoId);
+  const titulo = document.getElementById('vc-titulo').textContent;
+  const total  = document.getElementById('v-total').textContent;
+  const periodo = document.getElementById('v-periodo').textContent;
+  document.getElementById('modal-aprovar-titulo').textContent  = `Confirmar aprovação — ${periodo}`;
+  document.getElementById('modal-aprovar-total').textContent   = total;
+  document.getElementById('modal-aprovar').style.display = 'flex';
+}
+
+function fecharModalAprovar() {
+  document.getElementById('modal-aprovar').style.display = 'none';
+}
+
+async function confirmarAprovacao() {
+  if (!currentValidacaoId) return;
+  const { error } = await sb.from('validacoes_mensais').update({
+    status: 'aprovado',
+    aprovado_em: new Date().toISOString()
+  }).eq('id', currentValidacaoId);
   if (error) { alert('Erro: ' + error.message); return; }
+  fecharModalAprovar();
   await carregarExtratoPeriodo(currentPrestadorId);
 }
  

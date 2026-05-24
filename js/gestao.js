@@ -451,8 +451,10 @@ async function confirmarPagamento() {
       .select('*,prestadores(nome,email)')
       .eq('id', id).single();
     if (val?.prestadores?.email) {
-      await notificarEmail(val.prestador_id, formatPeriodo(val.periodo_inicio, val.periodo_fim));
-    }
+  try {
+    await notificarEmail(val.prestador_id, formatPeriodo(val.periodo_inicio, val.periodo_fim));
+  } catch (e) {
+    console.warn('Notificação falhou mas pagamento foi registrado:', e);
   }
  
   fecharModalPagamento();

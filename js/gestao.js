@@ -38,31 +38,65 @@ async function carregarGestao() {
   document.getElementById('g-ativas').textContent = ta;
   document.getElementById('g-suspensas').textContent = fmtR(ts);
  
-  // ── Alert bar + badge — busca validações do período atual ──
-  const { data: valsPend } = await sb.from('validacoes_mensais').select('status')
-    .gte('periodo_fim', fmtDate(ini)).lte('periodo_fim', fmtDate(fim))
-    .in('status', ['pendente', 'contestado']);
-  const nPend = (valsPend || []).filter(v => v.status === 'pendente').length;
-  const nCont = (valsPend || []).filter(v => v.status === 'contestado').length;
+  // ── Busca todas as validações não pagas para calcular alertas ──
+  const { data: todasVals } = await sb.from('validacoes_mensais')
+    .select('*,prestadores(nome)')
+    .not('status', 'eq', 'pago')
+    .order('periodo_fim', { ascending: false });
  
+  const hoje = new Date();
+ 
+  const alertas = {
+    contestadas: [],
+    aprovadas: [],
+    prazoVencendo: [],
+    pagamentoAtrasado: []
+  };
+ 
+  (todasVals || []).forEach(v => {
+    const periodoFim = new Date(v.periodo_fim + 'T12:00:00');
+    const m1 = new Date(periodoFim.getFullYear(), periodoFim.getMonth() + 1, 1);
+    const prazoAprovacao = new Date(m1.getFullYear(), m1.getMonth(), 20);
+    const m2 = new Date(periodoFim.getFullYear(), periodoFim.getMonth() + 2, 1);
+    const prazoPagamento = new Date(m2.getFullYear(), m2.getMonth(), 10);
+ 
+    if (v.status === 'contestado') {
+      alertas.contestadas.push(v);
+    } else if (v.status === 'aprovado') {
+      if (hoje > prazoPagamento) {
+        alertas.pagamentoAtrasado.push(v);
+      } else {
+        alertas.aprovadas.push(v);
+      }
+    } else if (v.status === 'pendente') {
+      const alertaA = new Date(m1.getFullYear(), m1.getMonth(), 15);
+      if (hoje >= alertaA) {
+        alertas.prazoVencendo.push(v);
+      }
+    }
+  });
+ 
+  // ── Alert bar ──
   const ab = document.getElementById('g-alerts');
   const al = [];
-  if (nCont > 0) al.push(`✗ ${nCont} contestação(ões) pendente(s)`);
-  if (nPend > 0) al.push(`⏳ ${nPend} validação(ões) aguardando aprovação`);
-  if (inadimp > 0) al.push(`⚠ ${inadimp} inadimplente(s)`);
-  if (enc > 0) al.push(`⚠ ${enc} encerrando`);
+  if (alertas.contestadas.length > 0) al.push(`✗ ${alertas.contestadas.length} contestação(ões)`);
+  if (alertas.pagamentoAtrasado.length > 0) al.push(`🚨 ${alertas.pagamentoAtrasado.length} pagamento(s) atrasado(s)`);
+  if (alertas.prazoVencendo.length > 0) al.push(`⏰ ${alertas.prazoVencendo.length} prazo vencendo`);
+  if (alertas.aprovadas.length > 0) al.push(`✅ ${alertas.aprovadas.length} aguardando pagamento`);
+ 
   if (al.length > 0) {
     ab.style.display = 'flex';
     ab.textContent = al.join(' · ');
-    ab.style.color = nCont > 0 ? 'var(--efl-red)' : 'var(--efl-yellow)';
+    ab.style.color = (alertas.contestadas.length > 0 || alertas.pagamentoAtrasado.length > 0)
+      ? 'var(--efl-red)' : 'var(--efl-yellow)';
   } else {
     ab.style.display = 'none';
   }
  
-  // ── Badge da tab Alertas — só pendentes + contestados do período ──
+  // ── Badge da tab Alertas ──
   const tabBtn = document.getElementById('tab-btn-alertas');
   if (tabBtn) {
-    const totalBadge = nPend + nCont;
+    const totalBadge = alertas.contestadas.length + alertas.pagamentoAtrasado.length + alertas.prazoVencendo.length;
     tabBtn.innerHTML = totalBadge > 0
       ? `Alertas <span style="background:var(--efl-red);color:#fff;border-radius:999px;font-size:10px;font-weight:700;padding:2px 7px;margin-left:6px;">${totalBadge}</span>`
       : 'Alertas';
@@ -103,8 +137,7 @@ async function carregarGestao() {
   await carregarValidacoesGestao();
   await carregarSelectParceiros();
  
-  // ── Aba Alertas — passa os 4 parâmetros corretamente ──
-  document.getElementById('alertas-content').innerHTML = buildAlertasHTML(inadimp, enc, nPend, nCont);
+  document.getElementById('alertas-content').innerHTML = buildAlertasHTML(alertas);
 }
  
 // ── TABELA CLIENTES ───────────────────────────────────────────────────────────
@@ -137,7 +170,6 @@ async function carregarValidacoesGestao() {
     .order('criado_em', { ascending: false });
  
   const pend = (data || []).filter(v => v.status === 'pendente').length;
-  const cont = (data || []).filter(v => v.status === 'contestado').length;
   document.getElementById('g-pendentes').textContent = pend;
  
   if (!data || !data.length) {
@@ -146,8 +178,7 @@ async function carregarValidacoesGestao() {
     return;
   }
  
-  // Separa IDs por tipo de ação possível
-  const idsPagarDisponiveis    = data.filter(v => v.status === 'aprovado' || v.status === 'contestado').map(v => v.id);
+  const idsPagarDisponiveis     = data.filter(v => v.status === 'aprovado' || v.status === 'contestado').map(v => v.id);
   const idsNotificarDisponiveis = data.filter(v => v.status === 'pendente').map(v => v.id);
  
   renderBotoesLote(idsPagarDisponiveis, idsNotificarDisponiveis, data);
@@ -165,7 +196,7 @@ async function carregarValidacoesGestao() {
                   : v.status === 'pago'       ? '💰 Pago'
                   : '⏳ Pendente';
  
-    const podePagar    = v.status === 'aprovado' || v.status === 'contestado';
+    const podePagar     = v.status === 'aprovado' || v.status === 'contestado';
     const podeNotificar = v.status === 'pendente';
  
     const checkboxCell = (podePagar || podeNotificar)
@@ -197,7 +228,7 @@ function renderBotoesLote(idsPagar, idsNotificar, data) {
   const container = document.getElementById('validacoes-acoes-lote');
   if (!container) return;
  
-  const temPagar    = idsPagar.length > 0;
+  const temPagar     = idsPagar.length > 0;
   const temNotificar = idsNotificar.length > 0;
  
   if (!temPagar && !temNotificar) { container.innerHTML = ''; return; }
@@ -241,7 +272,6 @@ function atualizarBotaoLote() {
   if (btn) btn.style.display = selecionados > 0 ? 'inline-flex' : 'none';
 }
  
-// Delegar evento de change nos checkboxes (chamado no app.js ou aqui)
 document.addEventListener('change', function(e) {
   if (e.target.classList.contains('val-check')) atualizarBotaoLote();
 });
@@ -250,7 +280,7 @@ async function confirmarAcoesLote() {
   const checks = document.querySelectorAll('.val-check:checked');
   if (!checks.length) return;
  
-  const paraPagar    = [...checks].filter(c => c.dataset.acao === 'pagar').map(c => c.dataset.id);
+  const paraPagar     = [...checks].filter(c => c.dataset.acao === 'pagar').map(c => c.dataset.id);
   const paraNotificar = [...checks].filter(c => c.dataset.acao === 'notificar').map(c => c.dataset.id);
  
   if (paraPagar.length > 0 && paraNotificar.length > 0) {
@@ -259,9 +289,8 @@ async function confirmarAcoesLote() {
   }
  
   if (paraPagar.length > 0) {
-    // Abre modal de pagamento em lote
     currentPagamentoIds = paraPagar;
-    currentPagamentoId  = null; // lote, não individual
+    currentPagamentoId  = null;
     document.getElementById('pag-data').value = new Date().toISOString().split('T')[0];
     document.getElementById('pag-obs').value = '';
     document.getElementById('modal-pagamento').style.display = 'flex';
@@ -269,19 +298,18 @@ async function confirmarAcoesLote() {
   }
  
   if (paraNotificar.length > 0) {
-    // Notifica todos de uma vez
     const { data: vals } = await sb.from('validacoes_mensais')
       .select('*,prestadores(nome,email)')
       .in('id', paraNotificar);
     let ok = 0, err = 0;
     for (const v of (vals || [])) {
       if (v?.prestadores?.email) {
-  try {
-    await notificarEmail(v.prestador_id, formatPeriodo(v.periodo_inicio, v.periodo_fim));
-    ok++;
-    await new Promise(r => setTimeout(r, 500));
-  } catch { err++; }
-}
+        try {
+          await notificarEmail(v.prestador_id, formatPeriodo(v.periodo_inicio, v.periodo_fim));
+          ok++;
+          await new Promise(r => setTimeout(r, 500));
+        } catch { err++; }
+      }
     }
     alert(`Notificações enviadas: ${ok} OK${err > 0 ? `, ${err} com erro` : ''}.`);
     await carregarValidacoesGestao();
@@ -297,8 +325,8 @@ async function carregarSelectParceiros() {
 }
  
 async function filtrarPorParceiro() {
-  const sel  = document.getElementById('select-parceiro');
-  const pid  = sel.value;
+  const sel   = document.getElementById('select-parceiro');
+  const pid   = sel.value;
   const pnome = pid ? sel.options[sel.selectedIndex].text : null;
   document.getElementById('g-titulo-parceiro').textContent = pid ? `· ${pnome}` : '';
   if (pid) { await carregarExtratoParceiro(pid); }
@@ -345,18 +373,43 @@ async function carregarExtratoParceiro(pid) {
 }
  
 // ── ALERTAS ───────────────────────────────────────────────────────────────────
-function buildAlertasHTML(inadimp, enc, pendentes, contestados) {
+function buildAlertasHTML(alertas) {
   let h = '';
-  if (contestados > 0) h += `<div style="padding:16px;background:rgba(232,64,64,0.08);border:1px solid rgba(232,64,64,0.2);border-radius:var(--efl-r-md);margin-bottom:12px;font-size:13px;color:var(--efl-red);">⚠️ <strong>${contestados} validação(ões) contestada(s)</strong> aguardando sua revisão.</div>`;
-  if (pendentes > 0)   h += `<div style="padding:16px;background:rgba(240,192,64,0.08);border:1px solid rgba(240,192,64,0.2);border-radius:var(--efl-r-md);margin-bottom:12px;font-size:13px;color:var(--efl-yellow);">🕐 <strong>${pendentes} validação(ões) pendente(s)</strong> aguardando aprovação dos parceiros.</div>`;
-  if (inadimp > 0)     h += `<div style="padding:16px;background:rgba(232,64,64,0.08);border:1px solid rgba(232,64,64,0.2);border-radius:var(--efl-r-md);margin-bottom:12px;font-size:13px;color:var(--efl-red);">🔴 <strong>${inadimp} parceiro(s) inadimplente(s)</strong> com pagamento em atraso.</div>`;
-  if (enc > 0)         h += `<div style="padding:16px;background:rgba(240,192,64,0.08);border:1px solid rgba(240,192,64,0.2);border-radius:var(--efl-r-md);margin-bottom:12px;font-size:13px;color:var(--efl-yellow);">⏳ <strong>${enc} contrato(s) encerrando</strong> nos próximos 30 dias.</div>`;
-  if (!h) h = `<div style="padding:16px;background:rgba(164,197,87,0.08);border:1px solid rgba(164,197,87,0.2);border-radius:var(--efl-r-md);font-size:13px;color:var(--efl-green-400);">✔ Nenhum alerta no momento.</div>`;
+ 
+  if (alertas.contestadas.length > 0) {
+    const nomes = alertas.contestadas.map(v => `<strong>${v.prestadores?.nome || '—'}</strong> (${formatPeriodo(v.periodo_inicio, v.periodo_fim)})`).join(', ');
+    h += `<div style="padding:16px;background:rgba(232,64,64,0.08);border:1px solid rgba(232,64,64,0.2);border-radius:var(--efl-r-md);margin-bottom:12px;font-size:13px;color:var(--efl-red);">
+      ✗ <strong>${alertas.contestadas.length} contestação(ões) pendente(s)</strong> — ${nomes}. Acesse a aba Validações para revisar.
+    </div>`;
+  }
+ 
+  if (alertas.pagamentoAtrasado.length > 0) {
+    const nomes = alertas.pagamentoAtrasado.map(v => `<strong>${v.prestadores?.nome || '—'}</strong> (${formatPeriodo(v.periodo_inicio, v.periodo_fim)})`).join(', ');
+    h += `<div style="padding:16px;background:rgba(232,64,64,0.08);border:1px solid rgba(232,64,64,0.2);border-radius:var(--efl-r-md);margin-bottom:12px;font-size:13px;color:var(--efl-red);">
+      🚨 <strong>${alertas.pagamentoAtrasado.length} pagamento(s) atrasado(s)</strong> — ${nomes}. Prazo de pagamento (dia 10) já passou.
+    </div>`;
+  }
+ 
+  if (alertas.prazoVencendo.length > 0) {
+    const nomes = alertas.prazoVencendo.map(v => `<strong>${v.prestadores?.nome || '—'}</strong> (${formatPeriodo(v.periodo_inicio, v.periodo_fim)})`).join(', ');
+    h += `<div style="padding:16px;background:rgba(240,192,64,0.08);border:1px solid rgba(240,192,64,0.2);border-radius:var(--efl-r-md);margin-bottom:12px;font-size:13px;color:var(--efl-yellow);">
+      ⏰ <strong>${alertas.prazoVencendo.length} validação(ões) com prazo vencendo</strong> — ${nomes}. Parceiro(s) precisam aprovar até o dia 20.
+    </div>`;
+  }
+ 
+  if (alertas.aprovadas.length > 0) {
+    const nomes = alertas.aprovadas.map(v => `<strong>${v.prestadores?.nome || '—'}</strong> (${formatPeriodo(v.periodo_inicio, v.periodo_fim)})`).join(', ');
+    h += `<div style="padding:16px;background:rgba(32,184,160,0.08);border:1px solid rgba(32,184,160,0.2);border-radius:var(--efl-r-md);margin-bottom:12px;font-size:13px;color:var(--efl-teal);">
+      ✅ <strong>${alertas.aprovadas.length} validação(ões) aprovada(s)</strong> aguardando pagamento — ${nomes}.
+    </div>`;
+  }
+ 
+  if (!h) h = `<div style="padding:16px;background:rgba(164,197,87,0.08);border:1px solid rgba(164,197,87,0.2);border-radius:var(--efl-r-md);font-size:13px;color:var(--efl-green-400);">✔ Nenhum alerta no momento. Tudo em dia!</div>`;
   return h;
 }
  
 // ── PAGAMENTO ─────────────────────────────────────────────────────────────────
-let currentPagamentoIds = []; // para lote
+let currentPagamentoIds = [];
  
 function abrirModalPagamento(validacaoId) {
   currentPagamentoId  = validacaoId;
@@ -377,7 +430,6 @@ async function confirmarPagamento() {
   const obs  = document.getElementById('pag-obs').value;
   if (!data) { alert('Informe a data do pagamento.'); return; }
  
-  // Determina se é individual ou lote
   const ids = currentPagamentoIds.length > 0 ? currentPagamentoIds : (currentPagamentoId ? [currentPagamentoId] : []);
   if (!ids.length) return;
  
@@ -395,7 +447,6 @@ async function confirmarPagamento() {
     if (error) { console.error('Erro ao pagar id', id, error); erros++; continue; }
     if (!updated || updated.length === 0) { console.warn('Update não afetou nenhuma linha para id', id); erros++; continue; }
  
-    // Notifica parceiro
     const { data: val } = await sb.from('validacoes_mensais')
       .select('*,prestadores(nome,email)')
       .eq('id', id).single();

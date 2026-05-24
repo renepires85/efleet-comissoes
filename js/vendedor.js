@@ -43,9 +43,15 @@ function renderSeletorPeriodoVendedor() {
     </div>
   `;
 }
- 
 async function setPeriodoVendedor(periodo) {
-  async function atualizarCustomVendedor() {
+  vendedorPeriodoAtual = periodo;
+  renderSeletorPeriodoVendedor();
+  if (periodo !== 'custom') {
+    await carregarExtratoPeriodo(currentPrestadorId);
+  }
+}
+
+async function atualizarCustomVendedor() {
   const iniMes = document.getElementById('v-custom-ini-mes')?.value;
   const iniAno = document.getElementById('v-custom-ini-ano')?.value;
   const fimMes = document.getElementById('v-custom-fim-mes')?.value;
@@ -56,16 +62,6 @@ async function setPeriodoVendedor(periodo) {
     await carregarExtratoPeriodo(currentPrestadorId);
   }
 }
-async function atualizarCustomVendedor() {
-  const ini = document.getElementById('v-custom-ini')?.value;
-  const fim = document.getElementById('v-custom-fim')?.value;
-  if (ini) vendedorPeriodoCustomIni = ini;
-  if (fim) vendedorPeriodoCustomFim = fim;
-  if (vendedorPeriodoCustomIni && vendedorPeriodoCustomFim) {
-    await carregarExtratoPeriodo(currentPrestadorId);
-  }
-}
- 
 function getVendedorDates() {
   const hoje = new Date();
   let ini, fim;

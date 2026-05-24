@@ -1,8 +1,13 @@
 import { createClient } from "jsr:@supabase/supabase-js@2";
-
+ 
 const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY") ?? "";
-
+ 
 export default async (req: Request) => {
+  console.log("clever-handler iniciado");
+  console.log("RESEND_API_KEY existe:", !!RESEND_API_KEY);
+  console.log("RESEND_API_KEY prefixo:", RESEND_API_KEY?.slice(0, 6));
+  console.log("região:", Deno.env.get("SB_REGION") ?? "não disponível");
+ 
   if (req.method === "OPTIONS") {
     return new Response("ok", {
       headers: {
@@ -11,7 +16,7 @@ export default async (req: Request) => {
       },
     });
   }
-
+ 
   let body: {
     action?: string;
     prestador_id?: string;
@@ -23,39 +28,48 @@ export default async (req: Request) => {
       tipo: string;
     };
   } = {};
-
+ 
   try {
     body = await req.json();
+    console.log("body recebido:", JSON.stringify(body));
   } catch {
+    console.log("erro ao parsear body");
     return Response.json({ error: "Body inválido" }, { status: 400 });
   }
-
+ 
   const { action } = body;
-
+  console.log("action:", action);
+ 
   // ─── ROTA 1: Notificar parceiro sobre comissões disponíveis ───
   if (action === "notificar_parceiro" || !action) {
     const { prestador_id, periodo } = body;
-
+ 
     if (!prestador_id || !periodo) {
       return Response.json({ error: "prestador_id e periodo são obrigatórios" }, { status: 400 });
     }
-
+ 
     try {
+      console.log("criando cliente Supabase...");
       const sb = createClient(
         Deno.env.get("SUPABASE_URL") ?? "",
         Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
       );
-
+ 
+      console.log("buscando prestador:", prestador_id);
       const { data: prestador, error } = await sb
         .from("prestadores")
         .select("nome, email")
         .eq("id", prestador_id)
         .single();
-
+ 
       if (error || !prestador) {
+        console.log("prestador não encontrado:", error?.message);
         return Response.json({ error: "Prestador não encontrado", detail: error?.message }, { status: 404 });
       }
-
+ 
+      console.log("prestador encontrado:", prestador.nome, prestador.email);
+      console.log("chamando Resend...");
+ 
       const res = await fetch("https://api.resend.com/emails", {
         method: "POST",
         headers: {
@@ -82,30 +96,35 @@ export default async (req: Request) => {
           `,
         }),
       });
-
+ 
       const result = await res.json();
+      console.log("resposta Resend status:", res.status);
+      console.log("resposta Resend body:", JSON.stringify(result));
+ 
       if (!res.ok) {
         return Response.json({ error: "Resend error", detail: result }, { status: 500 });
       }
-
+ 
       return Response.json({ ok: true, email: prestador.email });
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : String(e);
+      console.log("erro interno:", msg);
       return Response.json({ error: msg }, { status: 500 });
     }
   }
-
+ 
   // ─── ROTA 2: Notificar gestão sobre nova solicitação de acesso ───
   if (action === "nova_solicitacao") {
     const { solicitacao } = body;
-
+ 
     if (!solicitacao?.nome || !solicitacao?.email || !solicitacao?.tipo) {
       return Response.json({ error: "nome, email e tipo são obrigatórios" }, { status: 400 });
     }
-
+ 
     try {
+      console.log("notificando gestão sobre nova solicitação:", solicitacao.nome);
       const tipoLabel = solicitacao.tipo === "gestao" ? "Gestão" : "Parceiro Comercial";
-
+ 
       const res = await fetch("https://api.resend.com/emails", {
         method: "POST",
         headers: {
@@ -136,18 +155,23 @@ export default async (req: Request) => {
           `,
         }),
       });
-
+ 
       const result = await res.json();
+      console.log("resposta Resend status:", res.status);
+      console.log("resposta Resend body:", JSON.stringify(result));
+ 
       if (!res.ok) {
         return Response.json({ error: "Resend error", detail: result }, { status: 500 });
       }
-
+ 
       return Response.json({ ok: true });
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : String(e);
+      console.log("erro interno:", msg);
       return Response.json({ error: msg }, { status: 500 });
     }
   }
-
+ 
   return Response.json({ error: "Action inválida" }, { status: 400 });
 };
+ 

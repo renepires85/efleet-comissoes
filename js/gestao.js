@@ -452,13 +452,12 @@ async function confirmarPagamento() {
       .eq('id', id).single();
 
     if (val?.prestadores?.email) {
-      try {
-        await notificarEmail(val.prestador_id, formatPeriodo(val.periodo_inicio, val.periodo_fim));
-      } catch (e) {
-        console.warn('Notificação falhou mas pagamento foi registrado:', e);
-      }
+      const emailPromise = notificarEmail(val.prestador_id, formatPeriodo(val.periodo_inicio, val.periodo_fim));
+      const timeout = new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 3000));
+      await Promise.race([emailPromise, timeout]).catch(e => {
+        console.warn('Notificação falhou ou timeout:', e);
+      });
     }
-  }
 
   fecharModalPagamento();
   const total = ids.length - erros;

@@ -461,7 +461,13 @@ async function confirmarPagamento() {
   }
 
   fecharModalPagamento();
-  if (erros > 0) alert(`${erros} pagamento(s) não foram processados. Verifique o console.`);
+  const total = ids.length - erros;
+  if (total === 1) {
+    alert('✓ Pagamento registrado com sucesso!');
+  } else if (total > 1) {
+    alert(`✓ ${total} pagamentos registrados com sucesso!`);
+  }
+  if (erros > 0) alert(`⚠ ${erros} pagamento(s) não foram processados.`);
   await carregarValidacoesGestao();
 }
  

@@ -84,7 +84,7 @@ async function carregarSolicitacoes() {
         <td><strong style="color:#fff;">${s.nome}</strong></td>
         <td class="td-muted">${s.email}</td>
         <td><span class="badge badge-blue">${tipoLabel(s.tipo)}</span></td>
-        <td><span class="badge ${s.status === 'aprovado' ? 'badge-green' : 'badge-red'}">${s.status === 'aprovado' ? '✓ Aprovado' : '✗ Rejeitado'}</span></td>
+        <td><span class="badge ${s.status === 'aprovado' ? 'badge-green' : s.status === 'ja_cadastrado' ? 'badge-yellow' : 'badge-red'}">${s.status === 'aprovado' ? '✓ Aprovado' : s.status === 'ja_cadastrado' ? '⚠️ Já cadastrado' : '✗ Rejeitado'}</span></td>
         <td class="td-muted">${new Date(s.created_at).toLocaleDateString('pt-BR')}</td>
       </tr>`).join('')
     : '<tr><td colspan="5" class="loading">Nenhum histórico.</td></tr>';
@@ -107,6 +107,18 @@ async function aprovarSolicitacao(id, nome, email, tipo, senha) {
       body: JSON.stringify({ nome, email, perfil, senha })
     });
     const result = await res.json();
+
+    // E-mail já cadastrado — move para histórico sem travar
+    if (result.error && result.error.includes('already been registered')) {
+      await sb.from('solicitacoes_acesso').update({
+        status: 'ja_cadastrado',
+        updated_at: new Date().toISOString()
+      }).eq('id', id);
+      alert(`⚠️ Este e-mail já possui acesso ao sistema. A solicitação foi arquivada.`);
+      await carregarSolicitacoes();
+      return;
+    }
+
     if (result.error) throw new Error(result.error);
 
     await sb.from('solicitacoes_acesso').update({

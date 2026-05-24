@@ -16,6 +16,19 @@ async function carregarVendedor(pid, nome) {
 function renderSeletorPeriodoVendedor() {
   const container = document.getElementById('v-periodo-seletor');
   if (!container) return;
+  const meses = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+  const anoAtual = new Date().getFullYear();
+  const anos = [anoAtual - 1, anoAtual, anoAtual + 1];
+  const selMes = (id, val) => `<select id="${id}-mes" class="input" style="padding:6px 10px;font-size:13px;" onchange="atualizarCustomVendedor()">
+    ${meses.map((m, i) => `<option value="${String(i+1).padStart(2,'0')}" ${val === String(i+1).padStart(2,'0') ? 'selected' : ''}>${m}</option>`).join('')}
+  </select>`;
+  const selAno = (id, val) => `<select id="${id}-ano" class="input" style="padding:6px 10px;font-size:13px;" onchange="atualizarCustomVendedor()">
+    ${anos.map(a => `<option value="${a}" ${val === String(a) ? 'selected' : ''}>${a}</option>`).join('')}
+  </select>`;
+  const iniMes = vendedorPeriodoCustomIni?.split('-')[1] || String(new Date().getMonth()).padStart(2,'0') || '01';
+  const iniAno = vendedorPeriodoCustomIni?.split('-')[0] || String(new Date().getFullYear());
+  const fimMes = vendedorPeriodoCustomFim?.split('-')[1] || String(new Date().getMonth() + 1).padStart(2,'0');
+  const fimAno = vendedorPeriodoCustomFim?.split('-')[0] || String(new Date().getFullYear());
   container.innerHTML = `
     <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:16px;">
       <button class="btn btn-sm ${vendedorPeriodoAtual === 'mes-atual' ? 'btn-primary' : 'btn-ghost'}" onclick="setPeriodoVendedor('mes-atual')">Mês atual</button>
@@ -23,22 +36,26 @@ function renderSeletorPeriodoVendedor() {
       <button class="btn btn-sm ${vendedorPeriodoAtual === 'ultimos-3' ? 'btn-primary' : 'btn-ghost'}" onclick="setPeriodoVendedor('ultimos-3')">Últimos 3 meses</button>
       <button class="btn btn-sm ${vendedorPeriodoAtual === 'custom' ? 'btn-primary' : 'btn-ghost'}" onclick="setPeriodoVendedor('custom')">Personalizado</button>
       ${vendedorPeriodoAtual === 'custom' ? `
-        <input type="month" id="v-custom-ini" class="input" style="width:140px;padding:6px 10px;font-size:13px;" value="${vendedorPeriodoCustomIni || ''}" onchange="atualizarCustomVendedor()">
+        ${selMes('v-custom-ini', iniMes)} ${selAno('v-custom-ini', iniAno)}
         <span style="color:var(--efl-gray-400);font-size:13px;">até</span>
-        <input type="month" id="v-custom-fim" class="input" style="width:140px;padding:6px 10px;font-size:13px;" value="${vendedorPeriodoCustomFim || ''}" onchange="atualizarCustomVendedor()">
+        ${selMes('v-custom-fim', fimMes)} ${selAno('v-custom-fim', fimAno)}
       ` : ''}
     </div>
   `;
 }
  
 async function setPeriodoVendedor(periodo) {
-  vendedorPeriodoAtual = periodo;
-  renderSeletorPeriodoVendedor();
-  if (periodo !== 'custom') {
+  async function atualizarCustomVendedor() {
+  const iniMes = document.getElementById('v-custom-ini-mes')?.value;
+  const iniAno = document.getElementById('v-custom-ini-ano')?.value;
+  const fimMes = document.getElementById('v-custom-fim-mes')?.value;
+  const fimAno = document.getElementById('v-custom-fim-ano')?.value;
+  if (iniMes && iniAno) vendedorPeriodoCustomIni = `${iniAno}-${iniMes}`;
+  if (fimMes && fimAno) vendedorPeriodoCustomFim = `${fimAno}-${fimMes}`;
+  if (vendedorPeriodoCustomIni && vendedorPeriodoCustomFim) {
     await carregarExtratoPeriodo(currentPrestadorId);
   }
 }
- 
 async function atualizarCustomVendedor() {
   const ini = document.getElementById('v-custom-ini')?.value;
   const fim = document.getElementById('v-custom-fim')?.value;

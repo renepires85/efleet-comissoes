@@ -65,6 +65,18 @@ async function carregarSolicitacoes() {
   const historico = data.filter(s => s.status !== 'pendente');
   const tipoLabel = t => t === 'gestao' ? 'Gestão' : 'Parceiro Comercial';
 
+  // Bug #3 — badge vermelho com contagem de pedidos pendentes
+  const navBtn = document.getElementById('nav-solicitacoes');
+  const badgeExistente = navBtn.querySelector('.nav-badge');
+  if (badgeExistente) badgeExistente.remove();
+  if (pendentes.length > 0) {
+    const badge = document.createElement('span');
+    badge.className = 'nav-badge';
+    badge.textContent = pendentes.length;
+    badge.style.cssText = 'background:var(--efl-red);color:#fff;font-family:var(--efl-font-head);font-size:10px;font-weight:800;min-width:18px;height:18px;border-radius:999px;display:inline-flex;align-items:center;justify-content:center;padding:0 5px;margin-left:6px;';
+    navBtn.appendChild(badge);
+  }
+
   document.getElementById('tbody-solicitacoes-pendentes').innerHTML = pendentes.length
     ? pendentes.map(s => `<tr>
         <td><strong style="color:#fff;">${s.nome}</strong></td>

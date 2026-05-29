@@ -132,7 +132,7 @@ async function carregarExtratoPeriodo(pid) {
   const clis = new Set(ext.filter(e => e.status === 'calculada').map(e => e.cliente_cnpj)).size;
   document.getElementById('v-clientes-badge').textContent = `${clis} clientes ativos`;
  
-// Validação — usa a mais recente do período
+  // Validação — usa a mais recente do período
   const vm   = vals?.[0];
   const card = document.getElementById('validacao-card');
   const btnA = document.getElementById('btn-aprovar');
@@ -146,7 +146,8 @@ async function carregarExtratoPeriodo(pid) {
     card.className = `validacao-card ${vm.status}`;
     if (vm.status === 'pendente') {
       document.getElementById('vc-titulo').textContent = `⏳ Comissões de ${periodoValidacao} prontas para validação`;
-      document.getElementById('vc-sub').textContent   = 'Confira o detalhamento abaixo e aprove ou conteste os valores até o dia 20.';
+      // Bug #4 — alerta de urgência
+      document.getElementById('vc-sub').innerHTML = '⚠️ <strong>Ação necessária:</strong> Confira o detalhamento abaixo e aprove ou conteste os valores até o dia 20.';
       document.getElementById('v-validacao-badge').textContent = '⏳ Aguardando aprovação';
       document.getElementById('v-validacao-badge').className   = 'badge badge-yellow';
       btnA.style.display = 'inline-flex'; btnC.style.display = 'inline-flex';
@@ -175,7 +176,10 @@ async function carregarExtratoPeriodo(pid) {
 
   document.getElementById('tbody-vendedor').innerHTML = ext.map(c => {
     const pct = Math.round(parseFloat(c.fator_ramp) * 100);
-    const cs  = c.status === 'suspensa' ? `<span class="td-yellow">Suspensa</span>` : `<span class="td-green">${fmtR(c.comissao_bruta)}</span>`;
+    // Bug #1 — badge de suspensão com motivo
+    const cs = c.status === 'suspensa'
+      ? `<span class="td-yellow">Suspensa</span><span class="badge badge-yellow" style="margin-left:6px;font-size:10px;">Cliente inadimplente</span>`
+      : `<span class="td-green">${fmtR(c.comissao_bruta)}</span>`;
     const enc = c.mes_curva >= 11 ? `<span class="badge badge-yellow" style="margin-left:4px;font-size:10px;cursor:pointer;position:relative;" onclick="toggleTooltip(this)">⚠<span style="display:none;position:absolute;bottom:calc(100% + 6px);left:50%;transform:translateX(-50%);background:#1a2535;color:#fff;font-size:11px;font-weight:400;padding:8px 12px;border-radius:6px;white-space:nowrap;z-index:999;box-shadow:0 4px 12px rgba(0,0,0,0.4);border:1px solid rgba(255,255,255,0.1);">⏳ Cliente encerrando em breve.<br>Janela de comissão termina no mês 12.</span></span>` : '';
     return `<tr>
       <td><strong style="color:#fff;">${c.cliente_nome}</strong></td>
@@ -188,6 +192,7 @@ async function carregarExtratoPeriodo(pid) {
     </tr>`;
   }).join('');
 }
+
 // ── GRÁFICOS ──────────────────────────────────────────────────────────────────
 async function carregarGraficos(pid) {
   const container = document.getElementById('v-graficos');
@@ -205,7 +210,6 @@ async function carregarGraficos(pid) {
  
   if (!ext || !ext.length) { container.innerHTML = '<div class="loading">Sem dados para os gráficos.</div>'; return; }
  
-  // Agrupa por mês
   const porMes = {};
   ext.forEach(e => {
     const key = e.periodo_fim.substring(0, 7);
@@ -226,7 +230,6 @@ async function carregarGraficos(pid) {
     return new Date(parseInt(y), parseInt(mo) - 1, 1).toLocaleDateString('pt-BR', { month: 'short', year: '2-digit' });
   });
  
-  // Totais por produto para pizza
   const prodTotais = { FUEL: 0, PASS: 0, FINES: 0, PREMIUM: 0 };
   meses.forEach(m => {
     Object.keys(prodTotais).forEach(p => { prodTotais[p] += porMes[m][p]; });
@@ -235,7 +238,6 @@ async function carregarGraficos(pid) {
   const maxVal = Math.max(...totais, 1);
   const cores  = { FUEL: '#4a7fc8', PASS: '#A4C557', FINES: '#F0C040', PREMIUM: '#8060D0' };
  
-  // Gráfico de linha (SVG)
   const W = 500, H = 180, pad = 40;
   const pts = totais.map((v, i) => {
     const x = pad + (i / Math.max(meses.length - 1, 1)) * (W - pad * 2);
@@ -260,7 +262,6 @@ async function carregarGraficos(pid) {
     `).join('')}
   </svg>`;
  
-  // Gráfico de pizza (SVG)
   const prodAtivos = Object.entries(prodTotais).filter(([, v]) => v > 0);
   const totalPizza = prodAtivos.reduce((s, [, v]) => s + v, 0);
   let angulo = -Math.PI / 2;
@@ -392,7 +393,7 @@ async function exportarExtratoPDF() {
     <thead><tr><th>Cliente</th><th>Produto</th><th>Mês curva</th><th>Ramp</th><th>Base</th><th>Comissão</th><th>Status</th></tr></thead>
     <tbody>${ext.map(c => {
       const pct = Math.round(parseFloat(c.fator_ramp) * 100);
-      const cs  = c.status === 'suspensa' ? `<span class="yellow">Suspensa</span>` : `<span class="green">R$ ${parseFloat(c.comissao_bruta).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>`;
+      const cs  = c.status === 'suspensa' ? `<span class="yellow">Suspensa — Cliente inadimplente</span>` : `<span class="green">R$ ${parseFloat(c.comissao_bruta).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>`;
       return `<tr><td>${c.cliente_nome}</td><td>${c.produto}</td><td>${c.mes_curva}/12</td><td>${pct}%</td><td>R$ ${parseFloat(c.base_calculo).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td><td>${cs}</td><td>${c.status}</td></tr>`;
     }).join('')}</tbody>
   </table>
@@ -403,10 +404,11 @@ async function exportarExtratoPDF() {
   w.document.close();
   w.print();
 }
+
 function toggleTooltip(el) {
   const tip = el.querySelector('span');
   if (!tip) return;
   const visible = tip.style.display === 'block';
   document.querySelectorAll('.badge-yellow span').forEach(t => t.style.display = 'none');
   tip.style.display = visible ? 'none' : 'block';
-} 
+}

@@ -24,7 +24,10 @@ async function salvarPrestador() {
     if (error) { alert('Erro: ' + error.message); return; }
 
     // Se o campo ativo mudou e tem usuario_id, bane ou desbane no Auth
-    if (prestadorAtual && prestadorAtual.ativo !== ativo && prestadorAtual.usuario_id) {
+    console.log('ativo atual:', prestadorAtual?.ativo, typeof prestadorAtual?.ativo);
+console.log('ativo novo:', ativo, typeof ativo);
+console.log('mudou?', prestadorAtual?.ativo !== ativo);
+if (prestadorAtual && prestadorAtual.ativo !== ativo && prestadorAtual.usuario_id) {
       try {
         const { data: { session } } = await sb.auth.getSession();
         const res = await fetch(SMART_URL, {

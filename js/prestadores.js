@@ -89,10 +89,6 @@ async function salvarPrestador() {
     ({ error } = await sb.from('prestadores').update(payload).eq('id', id));
     if (error) { alert('Erro: ' + error.message); return; }
 
-    console.log('ativo atual:', prestadorAtual?.ativo, typeof prestadorAtual?.ativo);
-    console.log('ativo novo:', ativo, typeof ativo);
-    console.log('mudou?', prestadorAtual?.ativo !== ativo);
-
     if (prestadorAtual && prestadorAtual.ativo !== ativo && prestadorAtual.usuario_id) {
       try {
         const { data: { session } } = await sb.auth.getSession();
@@ -110,7 +106,6 @@ async function salvarPrestador() {
           })
         });
         const result = await res.json();
-        console.log('resultado smart-service:', result);
         if (result.error) throw new Error(result.error);
       } catch (e) {
         alert(`⚠️ Cadastro salvo mas erro ao ${ativo ? 'reativar' : 'bloquear'} acesso: ${e.message}`);

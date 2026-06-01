@@ -172,9 +172,9 @@ async function calcularCheckpoint(upload) {
  for (const f of (fechamentos || [])) {
    const produtos = [
      { produto: 'FUEL',    ativacao: f.ativacao_fuel,    receita: f.receita_fuel,    taxa: 0.20 },
-     { produto: 'PASS',    ativacao: f.ativacao_pass,    receita: f.receita_pass,    taxa: 0.07 },
-     { produto: 'FINES',   ativacao: f.ativacao_fines,   receita: f.receita_fines,   taxa: 0.07 },
-     { produto: 'PREMIUM', ativacao: f.ativacao_premium, receita: f.receita_premium, taxa: 0.07 },
+     { produto: 'PASS',    ativacao: f.ativacao_pass,    receita: f.receita_pass,    taxa: 0.15 },
+     { produto: 'FINES',   ativacao: f.ativacao_fines,   receita: f.receita_fines,   taxa: 0.15 },
+     { produto: 'PREMIUM', ativacao: f.ativacao_premium, receita: f.receita_premium, taxa: 0.15 },
    ];
    const pid = prestMap[f.vendedor_nome.trim().toLowerCase()];
    for (const p of produtos) {

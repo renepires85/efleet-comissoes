@@ -178,17 +178,18 @@ async function carregarExtratoPeriodo(pid) {
     const pct = Math.round(parseFloat(c.fator_ramp) * 100);
     // Bug #1 — badge de suspensão com motivo
     const cs = c.status === 'suspensa'
-      ? `<span class="td-yellow">Suspensa</span><span class="badge badge-yellow" style="margin-left:6px;font-size:10px;">Cliente inadimplente</span>`
-      : `<span class="td-green">${fmtR(c.comissao_bruta)}</span>`;
+  ? `<span class="td-yellow">Suspensa</span><span class="badge badge-yellow" style="margin-left:6px;font-size:10px;">Cliente inadimplente</span>`
+  : c.status === 'zerada'
+  ? `<span class="td-muted">R$ 0,00</span><span class="badge badge-red" style="margin-left:6px;font-size:10px;">Cliente em churn</span>`
+  : `<span class="td-green">${fmtR(c.comissao_bruta)}</span>`;
     const enc = c.mes_curva >= 11 ? `<span class="badge badge-yellow" style="margin-left:4px;font-size:10px;cursor:pointer;position:relative;" onclick="toggleTooltip(this)">⚠<span style="display:none;position:absolute;bottom:calc(100% + 6px);left:50%;transform:translateX(-50%);background:#1a2535;color:#fff;font-size:11px;font-weight:400;padding:8px 12px;border-radius:6px;white-space:nowrap;z-index:999;box-shadow:0 4px 12px rgba(0,0,0,0.4);border:1px solid rgba(255,255,255,0.1);">⏳ Cliente encerrando em breve.<br>Janela de comissão termina no mês 12.</span></span>` : '';
     return `<tr>
       <td><strong style="color:#fff;">${c.cliente_nome}</strong></td>
       <td><span class="badge ${c.produto === 'FUEL' ? 'badge-blue' : 'badge-green'}">${c.produto}</span></td>
       <td class="td-mono">${c.mes_curva}/12 ${enc}</td>
       <td><div class="ramp-bar"><div class="ramp-track"><div class="ramp-fill ${pct < 100 ? 'partial' : ''}" style="width:${pct}%"></div></div><div class="ramp-label">${pct}%</div></div></td>
-      <td class="td-mono">${fmtR(c.base_calculo)}</td>
+      <td><span class="badge ${c.status === 'calculada' ? 'badge-green' : c.status === 'zerada' ? 'badge-red' : 'badge-yellow'}">${c.status}</span></td>
       <td>${cs}</td>
-      <td><span class="badge ${c.status === 'calculada' ? 'badge-green' : 'badge-yellow'}">${c.status}</span></td>
     </tr>`;
   }).join('');
 }

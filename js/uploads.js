@@ -132,13 +132,14 @@ function normalizarLinhas(rows) {
 function lerExcel(file) {
   return new Promise((res, rej) => {
     const r = new FileReader();
+    const isCsv = file.name.toLowerCase().endsWith('.csv');
+
     r.onload = e => {
       try {
-        const isCsv = file.name.toLowerCase().endsWith('.csv');
         let raw;
         if (isCsv) {
-          const text = new TextDecoder('utf-8').decode(e.target.result);
-          const wb = XLSX.read(text, { type: 'string', raw: false, dateNF: 'yyyy-mm-dd' });
+          // CSV precisa ser lido como texto
+          const wb = XLSX.read(e.target.result, { type: 'string', raw: false, dateNF: 'yyyy-mm-dd' });
           const ws = wb.Sheets[wb.SheetNames[0]];
           raw = XLSX.utils.sheet_to_json(ws, { raw: false, dateNF: 'yyyy-mm-dd' });
         } else {
@@ -146,11 +147,19 @@ function lerExcel(file) {
           const ws = wb.Sheets['FECHAMENTO_MES'] || wb.Sheets[wb.SheetNames[0]];
           raw = XLSX.utils.sheet_to_json(ws, { raw: false, dateNF: 'yyyy-mm-dd' });
         }
+        if (!raw || !raw.length) throw new Error('Arquivo vazio ou formato inválido');
         res(normalizarLinhas(raw));
       } catch (err) { rej(err); }
     };
+
     r.onerror = rej;
-    r.readAsArrayBuffer(file);
+
+    // Diferencia o método de leitura conforme o tipo
+    if (isCsv) {
+      r.readAsText(file, 'utf-8');
+    } else {
+      r.readAsArrayBuffer(file);
+    }
   });
 }
 async function rodarCalculo() {

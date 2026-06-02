@@ -134,9 +134,18 @@ function lerExcel(file) {
     const r = new FileReader();
     r.onload = e => {
       try {
-        const wb = XLSX.read(e.target.result, { type: 'array', cellDates: true });
-        const ws = wb.Sheets['FECHAMENTO_MES'] || wb.Sheets[wb.SheetNames[0]];
-        const raw = XLSX.utils.sheet_to_json(ws, { raw: false, dateNF: 'yyyy-mm-dd' });
+        const isCsv = file.name.toLowerCase().endsWith('.csv');
+        let raw;
+        if (isCsv) {
+          const text = new TextDecoder('utf-8').decode(e.target.result);
+          const wb = XLSX.read(text, { type: 'string', raw: false, dateNF: 'yyyy-mm-dd' });
+          const ws = wb.Sheets[wb.SheetNames[0]];
+          raw = XLSX.utils.sheet_to_json(ws, { raw: false, dateNF: 'yyyy-mm-dd' });
+        } else {
+          const wb = XLSX.read(e.target.result, { type: 'array', cellDates: true });
+          const ws = wb.Sheets['FECHAMENTO_MES'] || wb.Sheets[wb.SheetNames[0]];
+          raw = XLSX.utils.sheet_to_json(ws, { raw: false, dateNF: 'yyyy-mm-dd' });
+        }
         res(normalizarLinhas(raw));
       } catch (err) { rej(err); }
     };
@@ -144,7 +153,6 @@ function lerExcel(file) {
     r.readAsArrayBuffer(file);
   });
 }
-
 async function rodarCalculo() {
   showStatus('⏳ Verificando arquivos pendentes...', 'warn', 'upload-status');
   const { data: uploads } = await sb.from('uploads').select('*').order('criado_em', { ascending: true });

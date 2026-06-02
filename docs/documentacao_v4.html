@@ -1,0 +1,727 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>eFleet ARGOS Comissões — Documentação Técnica v4.0</title>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800;900&family=Nunito:wght@400;600;700&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --efl-navy-950: #060e1a; --efl-navy-900: #0B1929; --efl-navy-800: #0f1f33;
+  --efl-navy-700: #14284a; --efl-navy-600: #1a3260; --efl-navy-500: #245091;
+  --efl-navy-400: #2d62b0; --efl-navy-300: #4a7fc8; --efl-navy-200: #7aa3d9;
+  --efl-navy-100: #b3c9ea; --efl-navy-50: #e8f0f8;
+  --efl-green-700: #6b8238; --efl-green-600: #82a044; --efl-green-500: #A4C557;
+  --efl-green-400: #b8d368; --efl-green-100: #edf4c5; --efl-green-50: #f6fae8;
+  --efl-red: #E84040; --efl-orange: #F08030; --efl-yellow: #F0C040; --efl-teal: #20B8A0;
+  --efl-white: #FFFFFF;
+  --efl-gray-100: #f0f2f5; --efl-gray-200: #d8dde5; --efl-gray-300: #b0bac8;
+  --efl-gray-400: #8a96a8; --efl-gray-500: #606878; --efl-gray-600: #404858;
+  --efl-gray-700: #2a3448;
+  --efl-font-head: 'Montserrat', sans-serif;
+  --efl-font-body: 'Nunito', sans-serif;
+  --efl-font-code: 'Fira Code', monospace;
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+body { font-family: var(--efl-font-body); background: #fff; color: var(--efl-gray-700); font-size: 14px; line-height: 1.7; -webkit-font-smoothing: antialiased; }
+
+/* LAYOUT */
+.sidebar { position: fixed; left: 0; top: 0; width: 260px; height: 100vh; background: var(--efl-navy-900); overflow-y: auto; z-index: 100; padding: 24px 0; }
+.sidebar-logo { padding: 0 20px 20px; border-bottom: 1px solid rgba(255,255,255,0.08); margin-bottom: 16px; }
+.sidebar-logo svg { width: 120px; height: auto; }
+.sidebar-section { padding: 4px 20px; font-family: var(--efl-font-head); font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.12em; color: var(--efl-green-500); margin: 16px 0 6px; }
+.sidebar a { display: block; padding: 7px 20px; font-size: 12px; color: var(--efl-navy-100); text-decoration: none; font-family: var(--efl-font-body); font-weight: 600; border-left: 3px solid transparent; transition: all 0.15s; }
+.sidebar a:hover { color: #fff; background: rgba(255,255,255,0.05); border-left-color: var(--efl-green-500); }
+.main { margin-left: 260px; padding: 48px 52px; max-width: 1100px; }
+
+/* CAPA */
+.cover { background: linear-gradient(135deg, #245091 0%, #0B1929 60%, #14284a 100%); border-radius: 16px; padding: 52px 48px; margin-bottom: 48px; position: relative; overflow: hidden; }
+.cover::after { content: ''; position: absolute; right: -80px; top: -80px; width: 360px; height: 360px; border-radius: 50%; background: rgba(164,197,87,0.07); pointer-events: none; }
+.cover-eyebrow { font-family: var(--efl-font-head); font-size: 11px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: var(--efl-green-500); display: flex; align-items: center; gap: 8px; margin-bottom: 20px; }
+.cover-eyebrow::before { content: ''; display: inline-block; width: 3px; height: 14px; background: var(--efl-green-500); border-radius: 2px; }
+.cover-logo { height: 36px; margin-bottom: 16px; filter: brightness(0) invert(1); display: block; }
+.cover-title { font-family: var(--efl-font-head); font-size: 32px; font-weight: 900; color: #fff; line-height: 1.15; margin-bottom: 10px; }
+.cover-title span { color: var(--efl-green-500); }
+.cover-sub { font-size: 15px; color: var(--efl-navy-100); margin-bottom: 28px; }
+.cover-meta { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-top: 28px; }
+.cover-meta-item { background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; padding: 12px 14px; }
+.cover-meta-label { font-family: var(--efl-font-head); font-size: 10px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--efl-green-500); margin-bottom: 3px; }
+.cover-meta-value { font-size: 12px; color: var(--efl-navy-100); font-weight: 600; word-break: break-all; }
+
+/* SEÇÕES */
+.section { margin-bottom: 56px; }
+.section-header { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; padding-bottom: 14px; border-bottom: 2px solid var(--efl-navy-50); }
+.section-num { background: var(--efl-navy-500); color: white; font-family: var(--efl-font-head); font-size: 12px; font-weight: 800; width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.section-title { font-family: var(--efl-font-head); font-size: 22px; font-weight: 800; color: var(--efl-navy-700); }
+.subsection { margin: 24px 0 12px; }
+.subsection-title { font-family: var(--efl-font-head); font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: var(--efl-green-700); display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+.subsection-title::before { content: ''; display: inline-block; width: 3px; height: 12px; background: var(--efl-green-500); border-radius: 2px; }
+
+p { font-size: 14px; color: var(--efl-gray-600); line-height: 1.75; margin-bottom: 10px; }
+
+/* ALERTAS */
+.alert { display: flex; gap: 10px; align-items: flex-start; padding: 12px 14px; border-radius: 8px; margin: 12px 0; font-size: 13px; line-height: 1.5; }
+.alert-icon { font-size: 16px; flex-shrink: 0; }
+.alert-warn { background: #fffbeb; border: 1px solid var(--efl-yellow); color: #92400e; }
+.alert-danger { background: #fef2f2; border: 1px solid var(--efl-red); color: #7f1d1d; font-weight: 700; }
+.alert-info { background: var(--efl-navy-50); border: 1px solid var(--efl-navy-200); color: var(--efl-navy-600); }
+.alert-success { background: var(--efl-green-50); border: 1px solid var(--efl-green-500); color: var(--efl-green-700); }
+
+/* TABELAS */
+.table-wrap { overflow-x: auto; margin-bottom: 16px; border-radius: 12px; border: 1px solid var(--efl-navy-100); }
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+thead th { font-family: var(--efl-font-head); font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.1em; color: #fff; padding: 10px 14px; background: var(--efl-navy-500); text-align: left; white-space: nowrap; }
+tbody td { padding: 9px 14px; color: var(--efl-gray-600); border-bottom: 1px solid var(--efl-navy-50); vertical-align: top; line-height: 1.5; }
+tbody tr:nth-child(even) td { background: var(--efl-navy-50); }
+tbody tr:last-child td { border-bottom: none; }
+tbody td:first-child { font-weight: 700; color: var(--efl-navy-600); }
+
+/* BADGES */
+.badge { display: inline-flex; align-items: center; font-family: var(--efl-font-head); font-size: 10px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; padding: 2px 8px; border-radius: 4px; white-space: nowrap; }
+.badge-navy  { background: var(--efl-navy-50);  color: var(--efl-navy-600);  border: 1px solid var(--efl-navy-200); }
+.badge-green { background: var(--efl-green-50); color: var(--efl-green-700); border: 1px solid var(--efl-green-500); }
+.badge-red   { background: #fde8e8; color: #c02020; border: 1px solid #f0a0a0; }
+.badge-yellow{ background: #fffbeb; color: #92400e; border: 1px solid var(--efl-yellow); }
+.badge-teal  { background: #e0faf6; color: #0e7a68; border: 1px solid var(--efl-teal); }
+
+/* CÓDIGO */
+code { font-family: var(--efl-font-code); font-size: 12px; background: var(--efl-navy-50); color: var(--efl-navy-600); padding: 2px 6px; border-radius: 4px; border: 1px solid var(--efl-navy-100); }
+pre { background: var(--efl-navy-900); border-radius: 10px; padding: 20px; margin: 12px 0; overflow-x: auto; border: 1px solid rgba(255,255,255,0.08); }
+pre code { background: none; border: none; color: var(--efl-green-400); font-size: 12px; padding: 0; line-height: 1.7; }
+
+/* STACK CARDS */
+.stack-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin: 16px 0; }
+.stack-card { background: var(--efl-navy-50); border: 1px solid var(--efl-navy-100); border-radius: 10px; padding: 16px; }
+.stack-card-label { font-family: var(--efl-font-head); font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.1em; color: var(--efl-green-700); margin-bottom: 6px; }
+.stack-card-value { font-size: 13px; font-weight: 700; color: var(--efl-navy-600); margin-bottom: 4px; }
+.stack-card-sub { font-size: 12px; color: var(--efl-gray-500); }
+
+/* FLUXO */
+.flow { display: flex; align-items: center; gap: 0; margin: 16px 0; flex-wrap: wrap; }
+.flow-step { background: var(--efl-navy-500); color: white; font-family: var(--efl-font-head); font-size: 11px; font-weight: 700; padding: 8px 14px; border-radius: 6px; white-space: nowrap; }
+.flow-step.green { background: var(--efl-green-600); }
+.flow-arrow { color: var(--efl-gray-400); font-size: 18px; padding: 0 6px; }
+
+/* CURVA */
+.curva-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; margin: 12px 0; }
+.curva-item { text-align: center; background: var(--efl-navy-50); border-radius: 8px; padding: 10px 4px; border: 1px solid var(--efl-navy-100); }
+.curva-mes { font-family: var(--efl-font-head); font-size: 10px; font-weight: 800; color: var(--efl-navy-500); margin-bottom: 4px; }
+.curva-pct { font-family: var(--efl-font-head); font-size: 16px; font-weight: 900; color: var(--efl-navy-700); }
+.curva-item.full .curva-pct { color: var(--efl-green-600); }
+.curva-item.zero .curva-pct { color: var(--efl-red); }
+
+/* ARMADILHAS */
+.trap { background: #fff8f0; border: 1px solid #f0c080; border-left: 4px solid var(--efl-orange); border-radius: 8px; padding: 14px 16px; margin: 10px 0; }
+.trap-title { font-family: var(--efl-font-head); font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.08em; color: var(--efl-orange); margin-bottom: 6px; }
+.trap-text { font-size: 13px; color: var(--efl-gray-600); line-height: 1.5; }
+
+/* CHECKLIST */
+.check-item { display: flex; align-items: flex-start; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--efl-gray-100); font-size: 13px; color: var(--efl-gray-600); }
+.check-item:last-child { border-bottom: none; }
+.check-box { width: 16px; height: 16px; border: 2px solid var(--efl-navy-300); border-radius: 3px; flex-shrink: 0; margin-top: 2px; }
+.check-box.done { background: var(--efl-green-500); border-color: var(--efl-green-500); }
+
+@media print {
+  .sidebar { display: none; }
+  .main { margin-left: 0; padding: 32px; }
+  .cover { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  thead th { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  pre { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+}
+</style>
+</head>
+<body>
+
+<!-- SIDEBAR -->
+<nav class="sidebar">
+  <div class="sidebar-logo">
+    <svg width="248" height="59" viewBox="0 0 248 59" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M16.5025 58.9999C25.6166 58.9999 33.0051 51.6209 33.0051 42.5183C33.0051 33.4158 25.6166 26.0367 16.5025 26.0367C7.38844 26.0367 0 33.4158 0 42.5183C0 51.6209 7.38844 58.9999 16.5025 58.9999Z" fill="#A4C557"/><path d="M28.2137 0.21191C14.0487 0.990114 3.04864 13.3357 2.45703 27.7181C6.14136 24.2113 11.1243 22.0545 16.6172 22.0545C18.594 22.0545 20.4987 22.3379 22.3072 22.8567L60.1702 0.149461C60.1702 0.149461 36.1884 -0.22523 28.2089 0.21191H28.2137Z" fill="#245091"/><path d="M60.1716 0.149597L22.3086 22.8568C29.3261 24.8744 34.7997 30.5284 36.5505 37.6475L60.1716 0.149597Z" fill="#DEE0E0"/><path d="M36.5475 37.6523L60.1734 0.149597L31.1172 28.0641C33.7241 30.6677 35.6384 33.9582 36.5475 37.6523Z" fill="#CBCDD0"/><path d="M4.87305 54.2107C7.85514 57.1698 11.9627 59 16.5032 59C25.6179 59 33.0058 51.6215 33.0058 42.5184C33.0058 37.9885 31.1732 33.8813 28.2104 30.903L4.87305 54.2107Z" fill="#89B056"/><path d="M60.1702 0.149597L59.949 0.500269L60.1654 0.154401L43.9082 55.0466C52.9266 50.8626 59.5209 42.3456 60.0981 32.1761C60.5502 24.1827 60.1654 0.149597 60.1654 0.149597H60.1702Z" fill="#245091"/><path d="M59.9549 0.495484L36.5502 37.6475C36.935 39.2183 37.1467 40.8612 37.1467 42.5521C37.1467 48.6048 34.5157 54.0474 30.3359 57.7992C30.6774 57.8088 31.0189 57.8232 31.3604 57.8232C35.8047 57.8232 40.0758 56.824 43.9141 55.0418L60.1713 0.154419L59.9549 0.500287V0.495484Z" fill="#223B6F"/><path d="M106.426 30.3983C106.233 29.7738 105.988 29.1638 105.704 28.5873C105.565 28.2655 105.406 27.9244 105.214 27.5449C103.121 23.4617 99.8218 20.6323 95.4064 19.1432C93.5209 18.5043 91.6259 18.1824 89.7741 18.1824C87.3018 18.1824 84.8344 18.7589 82.4535 19.8974C78.2738 21.8909 75.3253 25.0998 73.69 29.4376C72.0498 33.7801 72.1605 38.1227 74.0171 42.3548C74.4355 43.2915 74.9117 44.185 75.4456 45.0545C77.1579 47.6149 79.4329 49.6036 82.213 50.9535C84.6468 52.1352 87.2249 52.7357 89.8799 52.7357C90.2502 52.7357 90.6254 52.726 91.0006 52.702C94.0692 52.5147 96.9263 51.5395 99.4899 49.8054C102.049 48.0808 104.045 45.8087 105.42 43.0609L106.103 41.6967L99.7929 40.856L99.4466 41.5526C98.8358 42.7679 98.0374 43.8488 97.061 44.7615C96.0846 45.6742 94.9639 46.4043 93.7229 46.9327C92.4964 47.4564 91.2074 47.7638 89.8847 47.8503C87.9992 47.7638 86.2292 47.2306 84.6227 46.265C83.3433 45.4964 82.2659 44.5069 81.4146 43.3011L106.705 31.3014L106.426 30.4031V30.3983ZM99.3023 29.2022L79.1876 38.728C78.875 37.676 78.7163 36.5855 78.7163 35.4759C78.7163 32.2862 79.8225 29.5 82.0928 26.9588C84.3293 24.4609 86.8737 23.2408 89.8751 23.236C92.0106 23.3224 93.9923 23.9998 95.7719 25.2487C97.2726 26.3055 98.4558 27.6314 99.3023 29.2022Z" fill="#14357A"/><path d="M111.469 52.5675H116.644V29.0628H136.312V24.0093H116.644V11.3178H139.486V6.25952H111.469V52.5675Z" fill="#14357A"/><path d="M149.701 6.25952H144.525V52.5675H149.701V6.25952Z" fill="#14357A"/><path d="M188.475 30.3983C188.282 29.7738 188.037 29.1638 187.753 28.5873C187.614 28.2655 187.45 27.9244 187.262 27.5449C185.17 23.4617 181.871 20.6323 177.455 19.1432C175.57 18.5043 173.675 18.1824 171.823 18.1824C169.351 18.1824 166.888 18.7589 164.502 19.8974C160.323 21.8909 157.374 25.0998 155.739 29.4376C154.099 33.7801 154.209 38.1227 156.066 42.3548C156.484 43.2867 156.956 44.185 157.494 45.0593C159.207 47.6197 161.482 49.6084 164.262 50.9583C166.696 52.14 169.274 52.7405 171.929 52.7405C172.299 52.7405 172.674 52.7309 173.049 52.7068C176.118 52.5195 178.97 51.5443 181.539 49.8102C184.098 48.0856 186.094 45.8135 187.469 43.0657L188.152 41.7015L181.842 40.8608L181.495 41.5574C180.885 42.7727 180.086 43.8536 179.11 44.7663C178.133 45.679 177.013 46.4091 175.772 46.9376C174.545 47.4612 173.256 47.7686 171.934 47.8551C170.048 47.7686 168.278 47.2354 166.672 46.2698C165.392 45.5012 164.315 44.5117 163.463 43.3059L188.754 31.3062L188.475 30.4079V30.3983ZM181.346 29.2022L161.232 38.728C160.919 37.676 160.76 36.5855 160.76 35.4759C160.76 32.2862 161.867 29.5 164.137 26.9588C166.373 24.4609 168.918 23.2408 171.919 23.236C174.055 23.3224 176.036 23.9998 177.816 25.2487C179.317 26.3055 180.5 27.6314 181.346 29.2022Z" fill="#14357A"/><path d="M242.021 19.1192V7.60944L236.845 7.5614V19.1192H230.963V24.043H236.845V52.5675H242.021V24.043H247.999V19.1192H242.021Z" fill="#14357A"/></svg>
+  </div>
+  <div class="sidebar-section">Sistema</div>
+  <a href="#visao">1. Visão Geral</a>
+  <a href="#arquitetura">2. Arquitetura</a>
+  <a href="#arquivos">3. Estrutura de Arquivos</a>
+  <div class="sidebar-section">Banco de Dados</div>
+  <a href="#tabelas">4. Tabelas</a>
+  <a href="#views">5. Views</a>
+  <a href="#funcoes">6. Funções SQL</a>
+  <a href="#rls">7. RLS & Permissões</a>
+  <div class="sidebar-section">Backend</div>
+  <a href="#edge">8. Edge Functions</a>
+  <div class="sidebar-section">Negócio</div>
+  <a href="#perfis">9. Perfis & Acessos</a>
+  <a href="#fluxos">10. Fluxos Operacionais</a>
+  <a href="#regras">11. Regras de Negócio</a>
+  <a href="#email">12. Mensageria</a>
+  <div class="sidebar-section">Referência</div>
+  <a href="#armadilhas">13. Armadilhas Conhecidas</a>
+  <a href="#checklist">14. Checklist Pré-Produção</a>
+  <a href="#glossario">15. Glossário</a>
+</nav>
+
+<!-- MAIN -->
+<main class="main">
+
+<!-- CAPA -->
+<div class="cover">
+  <div class="cover-eyebrow">Documentação Técnica</div>
+  <svg class="cover-logo" viewBox="0 0 248 59" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M16.5025 58.9999C25.6166 58.9999 33.0051 51.6209 33.0051 42.5183C33.0051 33.4158 25.6166 26.0367 16.5025 26.0367C7.38844 26.0367 0 33.4158 0 42.5183C0 51.6209 7.38844 58.9999 16.5025 58.9999Z" fill="#A4C557"/><path d="M28.2137 0.21191C14.0487 0.990114 3.04864 13.3357 2.45703 27.7181C6.14136 24.2113 11.1243 22.0545 16.6172 22.0545C18.594 22.0545 20.4987 22.3379 22.3072 22.8567L60.1702 0.149461C60.1702 0.149461 36.1884 -0.22523 28.2089 0.21191H28.2137Z" fill="white"/><path d="M60.1716 0.149597L36.5475 37.6523L60.1734 0.149597Z" fill="rgba(255,255,255,0.6)"/><path d="M60.1702 0.149597L43.9082 55.0466C52.9266 50.8626 59.5209 42.3456 60.0981 32.1761C60.5502 24.1827 60.1654 0.149597 60.1654 0.149597H60.1702Z" fill="white"/><path d="M106.426 30.3983C106.233 29.7738 105.988 29.1638 105.704 28.5873C103.121 23.4617 99.8218 20.6323 95.4064 19.1432C93.5209 18.5043 91.6259 18.1824 89.7741 18.1824C87.3018 18.1824 84.8344 18.7589 82.4535 19.8974C78.2738 21.8909 75.3253 25.0998 73.69 29.4376C72.0498 33.7801 72.1605 38.1227 74.0171 42.3548C77.1579 47.6149 79.4329 49.6036 82.213 50.9535C84.6468 52.1352 87.2249 52.7357 89.8799 52.7357C94.0692 52.5147 96.9263 51.5395 99.4899 49.8054C102.049 48.0808 104.045 45.8087 105.42 43.0609L99.7929 40.856C98.8358 42.7679 98.0374 43.8488 97.061 44.7615C94.9639 46.4043 93.7229 46.9327 89.8847 47.8503C86.2292 47.2306 84.6227 46.265 81.4146 43.3011L106.705 31.3014L106.426 30.4031V30.3983Z" fill="white"/><path d="M111.469 52.5675H116.644V29.0628H136.312V24.0093H116.644V11.3178H139.486V6.25952H111.469V52.5675Z" fill="white"/><path d="M149.701 6.25952H144.525V52.5675H149.701V6.25952Z" fill="white"/><path d="M188.475 30.3983C185.17 23.4617 181.871 20.6323 177.455 19.1432C175.57 18.5043 173.675 18.1824 171.823 18.1824C166.888 18.7589 164.502 19.8974 160.323 21.8909C155.739 29.4376 154.099 33.7801 156.066 42.3548C159.207 47.6197 161.482 49.6084 164.262 50.9583C166.696 52.14 169.274 52.7405 171.929 52.7405C176.118 52.5195 178.97 51.5443 181.539 49.8102C184.098 48.0856 187.469 43.0657L181.842 40.8608C180.085 43.8536 177.013 46.4091 171.934 47.8551C168.278 47.2354 166.672 46.2698 163.463 43.3059L188.754 31.3062L188.475 30.4079V30.3983Z" fill="white"/><path d="M242.021 19.1192V7.60944L236.845 7.5614V19.1192H230.963V24.043H236.845V52.5675H242.021V24.043H247.999V19.1192H242.021Z" fill="white"/></svg>
+  <div class="cover-title">ARGOS · <span>Comissões</span></div>
+  <div class="cover-sub">Documentação Técnica Completa — Versão 4.0 · Junho 2026</div>
+  <div class="cover-meta">
+    <div class="cover-meta-item"><div class="cover-meta-label">URL</div><div class="cover-meta-value">efleet-comissoes.vercel.app</div></div>
+    <div class="cover-meta-item"><div class="cover-meta-label">Repositório</div><div class="cover-meta-value">github.com/renepires85/efleet-comissoes</div></div>
+    <div class="cover-meta-item"><div class="cover-meta-label">Supabase</div><div class="cover-meta-value">zakxroemofwolqqkfyaz.supabase.co</div></div>
+    <div class="cover-meta-item"><div class="cover-meta-label">Stack</div><div class="cover-meta-value">HTML/JS + Supabase + Vercel</div></div>
+    <div class="cover-meta-item"><div class="cover-meta-label">Branch</div><div class="cover-meta-value">main (produção)</div></div>
+    <div class="cover-meta-item"><div class="cover-meta-label">Atualizado</div><div class="cover-meta-value">Junho 2026</div></div>
+  </div>
+</div>
+
+<!-- 1. VISÃO GERAL -->
+<div class="section" id="visao">
+  <div class="section-header"><div class="section-num">1</div><div class="section-title">Visão Geral</div></div>
+  <p>O <strong>ARGOS Comissões</strong> é o sistema da eFleet Digital para calcular, validar e registrar o pagamento das comissões dos parceiros comerciais. Substitui planilhas manuais e centraliza todo o ciclo operacional — do upload do arquivo de fechamento mensal até a confirmação do pagamento.</p>
+  <div class="subsection"><div class="subsection-title">Propósito</div></div>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Problema resolvido</th><th>Solução</th></tr></thead>
+    <tbody>
+      <tr><td>Cálculo manual em planilhas</td><td>Upload de arquivo → cálculo automático pela Curva C de ramp-up</td></tr>
+      <tr><td>Sem visibilidade para o parceiro</td><td>Portal individual por parceiro com extrato, gráficos e validação</td></tr>
+      <tr><td>Sem controle de pagamento</td><td>Fluxo gestão → parceiro → pagamento com registro de data e responsável</td></tr>
+      <tr><td>Sem rastreabilidade</td><td>Checkpoints por upload, histórico de validações, log de pagamentos</td></tr>
+    </tbody>
+  </table></div>
+</div>
+
+<!-- 2. ARQUITETURA -->
+<div class="section" id="arquitetura">
+  <div class="section-header"><div class="section-num">2</div><div class="section-title">Arquitetura</div></div>
+  <div class="stack-grid">
+    <div class="stack-card"><div class="stack-card-label">Frontend</div><div class="stack-card-value">HTML + CSS + JavaScript</div><div class="stack-card-sub">Single page, sem framework. Hospedado no Vercel.</div></div>
+    <div class="stack-card"><div class="stack-card-label">Backend</div><div class="stack-card-value">Supabase</div><div class="stack-card-sub">PostgreSQL, RLS, Auth, Edge Functions (Deno)</div></div>
+    <div class="stack-card"><div class="stack-card-label">Hosting</div><div class="stack-card-value">Vercel</div><div class="stack-card-sub">Deploy automático via GitHub (branch main)</div></div>
+    <div class="stack-card"><div class="stack-card-label">Autenticação</div><div class="stack-card-value">Supabase Auth</div><div class="stack-card-sub">Email + senha. Ban via Admin API para inativação.</div></div>
+    <div class="stack-card"><div class="stack-card-label">E-mail</div><div class="stack-card-value">Resend</div><div class="stack-card-sub">Integração via Edge Function clever-handler. Pendente ativação.</div></div>
+    <div class="stack-card"><div class="stack-card-label">Excel</div><div class="stack-card-value">SheetJS (XLSX)</div><div class="stack-card-sub">Leitura de arquivos de fechamento e exportação de relatórios.</div></div>
+  </div>
+  <div class="alert alert-info"><div class="alert-icon">ℹ️</div><div>O sistema não tem servidor próprio. Todo o backend roda via Supabase — banco PostgreSQL, autenticação, Row Level Security e Edge Functions (serverless em Deno).</div></div>
+</div>
+
+<!-- 3. ESTRUTURA DE ARQUIVOS -->
+<div class="section" id="arquivos">
+  <div class="section-header"><div class="section-num">3</div><div class="section-title">Estrutura de Arquivos</div></div>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Arquivo</th><th>Responsabilidade</th></tr></thead>
+    <tbody>
+      <tr><td>index.html</td><td>HTML principal — estrutura de todas as views, modais e navegação</td></tr>
+      <tr><td>css/styles.css</td><td>Estilos globais — Design System eFleet v4.0</td></tr>
+      <tr><td>js/config.js</td><td>Variáveis de ambiente — URL Supabase, anon key, SMART_URL</td></tr>
+      <tr><td>js/utils.js</td><td>Funções utilitárias — formatação de moeda, data, períodos</td></tr>
+      <tr><td>js/auth.js</td><td>Login, logout, verificação de sessão, controle de perfil</td></tr>
+      <tr><td>js/app.js</td><td>Inicialização — todos os event listeners do DOMContentLoaded</td></tr>
+      <tr><td>js/gestao.js</td><td>Dashboard de gestão — KPIs, tabelas por parceiro e cliente, alertas</td></tr>
+      <tr><td>js/vendedor.js</td><td>Painel do parceiro — extrato, validação, aprovação, gráficos</td></tr>
+      <tr><td>js/uploads.js</td><td>Upload de arquivos, cálculo de comissões, checkpoints, exclusão</td></tr>
+      <tr><td>js/prestadores.js</td><td>Cadastro de parceiros, modal de edição, convite, bloqueio de acesso</td></tr>
+      <tr><td>js/solicitacoes.js</td><td>Solicitações de acesso — modal público, aprovação, rejeição, badge</td></tr>
+      <tr><td>js/notificacoes.js</td><td>Envio de e-mails via Edge Function clever-handler</td></tr>
+      <tr><td>supabase/functions/smart-service/index.ts</td><td>Edge Function — criação de usuários, ban/unban no Auth</td></tr>
+      <tr><td>supabase/functions/clever-handler/index.ts</td><td>Edge Function — envio de e-mails via Resend (pendente)</td></tr>
+      <tr><td>vercel.json</td><td>Rewrite rules — todas as rotas redirecionam para index.html</td></tr>
+    </tbody>
+  </table></div>
+</div>
+
+<!-- 4. TABELAS -->
+<div class="section" id="tabelas">
+  <div class="section-header"><div class="section-num">4</div><div class="section-title">Tabelas do Banco de Dados</div></div>
+
+  <div class="subsection"><div class="subsection-title">usuarios</div></div>
+  <p>Controla os perfis de acesso ao sistema. Criado automaticamente pelo smart-service quando um usuário é aprovado.</p>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Coluna</th><th>Tipo</th><th>Descrição</th></tr></thead>
+    <tbody>
+      <tr><td>id</td><td><code>uuid</code> PK</td><td>Mesmo ID do auth.users — vincula autenticação ao perfil</td></tr>
+      <tr><td>nome</td><td><code>text</code></td><td>Nome do usuário</td></tr>
+      <tr><td>perfil</td><td><code>text</code></td><td><code>gestao</code> ou <code>vendedor</code></td></tr>
+      <tr><td>ativo</td><td><code>boolean</code></td><td>Se o usuário está ativo no sistema</td></tr>
+      <tr><td>criado_em</td><td><code>timestamptz</code></td><td>Data de criação</td></tr>
+    </tbody>
+  </table></div>
+
+  <div class="subsection"><div class="subsection-title">prestadores</div></div>
+  <p>Cadastro dos parceiros comerciais. Apenas perfil <code>vendedor</code> tem entrada aqui.</p>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Coluna</th><th>Tipo</th><th>Descrição</th></tr></thead>
+    <tbody>
+      <tr><td>id</td><td><code>uuid</code> PK</td><td>Identificador único do prestador</td></tr>
+      <tr><td>usuario_id</td><td><code>uuid</code> FK → usuarios</td><td>Vínculo com o Auth — usado para ban/unban</td></tr>
+      <tr><td>nome</td><td><code>text</code></td><td>Nome completo — deve bater exatamente com vendedor_nome no arquivo de fechamento</td></tr>
+      <tr><td>tipo</td><td><code>text</code></td><td><code>PF</code> ou <code>PJ</code></td></tr>
+      <tr><td>documento</td><td><code>text</code></td><td>CPF ou CNPJ</td></tr>
+      <tr><td>cpf_responsavel</td><td><code>text</code></td><td>CPF do responsável (para PJ)</td></tr>
+      <tr><td>email</td><td><code>text</code></td><td>E-mail de contato</td></tr>
+      <tr><td>telefone</td><td><code>text</code></td><td>Telefone/WhatsApp</td></tr>
+      <tr><td>banco</td><td><code>text</code></td><td>Nome do banco</td></tr>
+      <tr><td>agencia</td><td><code>text</code></td><td>Agência bancária</td></tr>
+      <tr><td>conta</td><td><code>text</code></td><td>Número da conta</td></tr>
+      <tr><td>tipo_conta</td><td><code>text</code></td><td><code>corrente</code>, <code>poupanca</code> ou <code>pagamento</code></td></tr>
+      <tr><td>pix</td><td><code>text</code></td><td>Chave PIX</td></tr>
+      <tr><td>codigo</td><td><code>text</code></td><td>Código gerado automaticamente via função SQL</td></tr>
+      <tr><td>ativo</td><td><code>boolean</code></td><td>Se inativo, parceiro não entra nos cálculos e acesso é bloqueado no Auth</td></tr>
+    </tbody>
+  </table></div>
+
+  <div class="subsection"><div class="subsection-title">uploads</div></div>
+  <p>Registro de cada arquivo de fechamento subido. Cada upload gera um conjunto de fechamentos e comissões.</p>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Coluna</th><th>Tipo</th><th>Descrição</th></tr></thead>
+    <tbody>
+      <tr><td>id</td><td><code>uuid</code> PK</td><td>Identificador único do upload</td></tr>
+      <tr><td>nome_arquivo</td><td><code>text</code></td><td>Nome original do arquivo .xlsx</td></tr>
+      <tr><td>periodo_inicio</td><td><code>date</code></td><td>Primeiro dia do mês de referência</td></tr>
+      <tr><td>periodo_fim</td><td><code>date</code></td><td>Último dia do mês de referência</td></tr>
+      <tr><td>total_linhas</td><td><code>int</code></td><td>Total de linhas do arquivo</td></tr>
+      <tr><td>linhas_ok</td><td><code>int</code></td><td>Linhas calculadas com sucesso</td></tr>
+      <tr><td>status</td><td><code>text</code></td><td><code>pendente</code> ou <code>concluido</code></td></tr>
+      <tr><td>uploader_id</td><td><code>uuid</code> FK → usuarios</td><td>Quem fez o upload</td></tr>
+      <tr><td>criado_em</td><td><code>timestamptz</code></td><td>Data/hora do upload</td></tr>
+    </tbody>
+  </table></div>
+
+  <div class="subsection"><div class="subsection-title">fechamentos</div></div>
+  <p>Uma linha por cliente/produto em cada arquivo de fechamento. É a base dos cálculos.</p>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Coluna</th><th>Tipo</th><th>Descrição</th></tr></thead>
+    <tbody>
+      <tr><td>id</td><td><code>uuid</code> PK</td><td>Identificador único da linha</td></tr>
+      <tr><td>upload_id</td><td><code>uuid</code> FK → uploads</td><td>Upload ao qual esta linha pertence</td></tr>
+      <tr><td>prestador_id</td><td><code>uuid</code> FK → prestadores</td><td>Parceiro vinculado — preenchido no upload via match de nome</td></tr>
+      <tr><td>vendedor_nome</td><td><code>text</code></td><td>Nome do vendedor conforme o arquivo — deve bater com prestadores.nome</td></tr>
+      <tr><td>cliente_cnpj</td><td><code>text</code></td><td>CNPJ do cliente</td></tr>
+      <tr><td>cliente_nome</td><td><code>text</code></td><td>Nome do cliente</td></tr>
+      <tr><td>periodo_inicio / periodo_fim</td><td><code>date</code></td><td>Período de referência da linha</td></tr>
+      <tr><td>status_cliente</td><td><code>text</code></td><td><code>ativo</code>, <code>inadimplente</code> ou <code>churn</code></td></tr>
+      <tr><td>ativacao_fuel/pass/fines/premium</td><td><code>date</code></td><td>Data de ativação de cada produto — base do cálculo da Curva C</td></tr>
+      <tr><td>tpv_fuel</td><td><code>numeric</code></td><td>Volume transacionado de FUEL</td></tr>
+      <tr><td>receita_fuel/pass/fines/premium</td><td><code>numeric</code></td><td>Receita eFleet por produto — base de cálculo da comissão</td></tr>
+    </tbody>
+  </table></div>
+
+  <div class="subsection"><div class="subsection-title">comissoes</div></div>
+  <p>Uma linha por cliente/produto calculado. Gerada pela função SQL <code>processar_comissoes</code>.</p>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Coluna</th><th>Tipo</th><th>Descrição</th></tr></thead>
+    <tbody>
+      <tr><td>id</td><td><code>uuid</code> PK</td><td>Identificador único</td></tr>
+      <tr><td>fechamento_id</td><td><code>uuid</code> FK → fechamentos</td><td>Linha de fechamento que originou esta comissão</td></tr>
+      <tr><td>prestador_id</td><td><code>uuid</code> FK → prestadores</td><td>Parceiro que receberá a comissão</td></tr>
+      <tr><td>produto</td><td><code>text</code></td><td><code>FUEL</code>, <code>PASS</code>, <code>FINES</code> ou <code>PREMIUM</code></td></tr>
+      <tr><td>mes_curva</td><td><code>int</code></td><td>Mês da Curva C (1 a 12)</td></tr>
+      <tr><td>fator_ramp</td><td><code>numeric</code></td><td>Fator de ramp-up aplicado (0.2 a 1.0)</td></tr>
+      <tr><td>base_calculo</td><td><code>numeric</code></td><td>Receita eFleet usada como base</td></tr>
+      <tr><td>taxa_comissao</td><td><code>numeric</code></td><td>Taxa aplicada (0.20 para FUEL, 0.15 para mensalidades)</td></tr>
+      <tr><td>comissao_bruta</td><td><code>numeric</code></td><td>Valor final da comissão = base × taxa × fator_ramp</td></tr>
+      <tr><td>status</td><td><code>text</code></td><td><code>calculada</code>, <code>suspensa</code> ou <code>zerada</code></td></tr>
+      <tr><td>data_ativacao</td><td><code>date</code></td><td>Data de ativação do produto</td></tr>
+      <tr><td>periodo_inicio / periodo_fim</td><td><code>date</code></td><td>Período de referência</td></tr>
+      <tr><td>cliente_cnpj / cliente_nome</td><td><code>text</code></td><td>Dados do cliente</td></tr>
+    </tbody>
+  </table></div>
+
+  <div class="subsection"><div class="subsection-title">validacoes_mensais</div></div>
+  <p>Uma linha por parceiro por mês. Controla o ciclo de validação — pendente → aprovado/contestado → pago.</p>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Coluna</th><th>Tipo</th><th>Descrição</th></tr></thead>
+    <tbody>
+      <tr><td>id</td><td><code>uuid</code> PK</td><td>Identificador único</td></tr>
+      <tr><td>upload_id</td><td><code>uuid</code> FK → uploads</td><td>Upload que gerou esta validação</td></tr>
+      <tr><td>prestador_id</td><td><code>uuid</code> FK → prestadores</td><td>Parceiro a validar</td></tr>
+      <tr><td>periodo_inicio / periodo_fim</td><td><code>date</code></td><td>Período de referência</td></tr>
+      <tr><td>status</td><td><code>text</code></td><td><code>pendente</code>, <code>aprovado</code>, <code>contestado</code> ou <code>pago</code></td></tr>
+      <tr><td>aprovado_em</td><td><code>timestamptz</code></td><td>Data em que o parceiro aprovou</td></tr>
+      <tr><td>pago_em</td><td><code>timestamptz</code></td><td>Data em que a gestão confirmou o pagamento</td></tr>
+      <tr><td>pago_por</td><td><code>text</code></td><td>E-mail do usuário gestão que confirmou o pagamento</td></tr>
+      <tr><td>observacao</td><td><code>text</code></td><td>Motivo da contestação ou observação do pagamento</td></tr>
+      <tr><td>criado_em</td><td><code>timestamptz</code></td><td>Data de criação</td></tr>
+    </tbody>
+  </table></div>
+
+  <div class="subsection"><div class="subsection-title">checkpoints</div></div>
+  <p>Log de auditoria de cada cálculo executado. Armazena o resultado linha a linha em JSON.</p>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Coluna</th><th>Tipo</th><th>Descrição</th></tr></thead>
+    <tbody>
+      <tr><td>id</td><td><code>uuid</code> PK</td><td>Identificador único</td></tr>
+      <tr><td>upload_id</td><td><code>uuid</code> FK → uploads</td><td>Upload ao qual este checkpoint pertence</td></tr>
+      <tr><td>periodo_inicio / periodo_fim</td><td><code>date</code></td><td>Período de referência</td></tr>
+      <tr><td>total_linhas</td><td><code>int</code></td><td>Total de linhas processadas</td></tr>
+      <tr><td>calculadas</td><td><code>int</code></td><td>Linhas calculadas com sucesso</td></tr>
+      <tr><td>nao_calculadas</td><td><code>int</code></td><td>Linhas com erro ou status especial</td></tr>
+      <tr><td>detalhes</td><td><code>jsonb</code></td><td>Array com resultado de cada linha — vendedor, cliente, produto, mês, fator, comissão, status, erro</td></tr>
+      <tr><td>criado_por</td><td><code>uuid</code></td><td>ID do usuário que rodou o cálculo</td></tr>
+      <tr><td>criado_em</td><td><code>timestamptz</code></td><td>Data/hora do cálculo</td></tr>
+    </tbody>
+  </table></div>
+
+  <div class="subsection"><div class="subsection-title">solicitacoes_acesso</div></div>
+  <p>Registro das solicitações de acesso ao sistema feitas pelo formulário público.</p>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Coluna</th><th>Tipo</th><th>Descrição</th></tr></thead>
+    <tbody>
+      <tr><td>id</td><td><code>uuid</code> PK</td><td>Identificador único</td></tr>
+      <tr><td>nome</td><td><code>text</code></td><td>Nome do solicitante</td></tr>
+      <tr><td>email</td><td><code>text</code></td><td>E-mail do solicitante</td></tr>
+      <tr><td>telefone</td><td><code>text</code></td><td>Telefone/WhatsApp</td></tr>
+      <tr><td>tipo</td><td><code>text</code></td><td><code>parceiro_comercial</code> ou <code>gestao</code></td></tr>
+      <tr><td>senha_hash</td><td><code>text</code></td><td>Senha em texto plano — pendente implementação de hash</td></tr>
+      <tr><td>status</td><td><code>text</code></td><td><code>pendente</code>, <code>aprovado</code>, <code>rejeitado</code> ou <code>ja_cadastrado</code></td></tr>
+      <tr><td>rejeitado_por</td><td><code>text</code></td><td>E-mail do usuário gestão que rejeitou</td></tr>
+      <tr><td>created_at / updated_at</td><td><code>timestamptz</code></td><td>Datas de criação e atualização</td></tr>
+    </tbody>
+  </table></div>
+
+  <div class="alert alert-warn"><div class="alert-icon">⚠️</div><div><strong>CASCADE:</strong> uploads → fechamentos → comissoes → validacoes_mensais. Excluir um upload remove automaticamente todos os dados vinculados. Checkpoints também são vinculados via upload_id.</div></div>
+</div>
+
+<!-- 5. VIEWS -->
+<div class="section" id="views">
+  <div class="section-header"><div class="section-num">5</div><div class="section-title">Views</div></div>
+
+  <div class="subsection"><div class="subsection-title">vw_extrato_prestador</div></div>
+  <p>Join entre comissoes e fechamentos. Usada para exibir o extrato detalhado por parceiro. Inclui todos os status (calculada, suspensa, zerada).</p>
+
+  <div class="subsection"><div class="subsection-title">vw_acumulado_prestador</div></div>
+  <p>Agrega o total histórico de comissões por parceiro. Usada no card "Acumulado" do extrato do parceiro. Retorna null quando o parceiro não tem comissões — sempre usar <code>.maybeSingle()</code>, nunca <code>.single()</code>.</p>
+
+  <div class="subsection"><div class="subsection-title">vw_dashboard_gestao</div></div>
+  <p>Agrega os totais por parceiro para o dashboard de gestão — FUEL, mensalidades, suspenso, total e status.</p>
+
+  <div class="alert alert-warn"><div class="alert-icon">⚠️</div><div>As views precisam de GRANT explícito para service_role quando criadas com "Automatically expose new tables" desmarcado. RLS sozinho não é suficiente.</div></div>
+</div>
+
+<!-- 6. FUNÇÕES SQL -->
+<div class="section" id="funcoes">
+  <div class="section-header"><div class="section-num">6</div><div class="section-title">Funções SQL</div></div>
+
+  <div class="subsection"><div class="subsection-title">processar_comissoes(p_upload_id uuid) → integer</div></div>
+  <p>Função principal de cálculo. Para cada linha de fechamento vinculada ao upload, calcula a comissão de cada produto ativo. Usa SECURITY DEFINER para contornar RLS. Retorna o número de linhas calculadas.</p>
+  <p><strong>Lógica:</strong> Join fechamentos + prestadores pelo nome → para cada produto com ativação e receita → calcula mês da curva → aplica fator de ramp → multiplica base × taxa × fator → insere em comissoes com ON CONFLICT DO NOTHING.</p>
+  <pre><code>-- Taxas por produto
+FUEL:    receita × 0.20 × fator_ramp
+PASS:    receita × 0.15 × fator_ramp
+FINES:   receita × 0.15 × fator_ramp
+PREMIUM: receita × 0.15 × fator_ramp</code></pre>
+
+  <div class="subsection"><div class="subsection-title">criar_validacoes_pendentes(p_upload_id uuid)</div></div>
+  <p>Cria um registro em validacoes_mensais para cada prestador distinto no upload. Status inicial: <code>pendente</code>. Chamada automaticamente após processar_comissoes no fluxo de upload.</p>
+
+  <div class="subsection"><div class="subsection-title">calcular_mes_curva(data_ativacao date, periodo_fim date) → integer</div></div>
+  <p>Calcula o mês da Curva C. Fórmula: <code>((ano_fim - ano_at) × 12 + (mes_fim - mes_at)) + 1</code>.</p>
+
+  <div class="subsection"><div class="subsection-title">calcular_fator_ramp(mes_curva int) → numeric</div></div>
+  <p>Retorna o fator de ramp-up conforme o mês da curva. Veja tabela completa na seção Regras de Negócio.</p>
+
+  <div class="subsection"><div class="subsection-title">gerar_codigo_prestador(p_nome text) → text</div></div>
+  <p>Gera um código único para o prestador baseado no nome. Usado no cadastro manual de novos parceiros.</p>
+
+  <div class="alert alert-danger"><div class="alert-icon">🚨</div><div>Toda função que escreve em tabelas protegidas por RLS DEVE ser criada com SECURITY DEFINER. Sem isso, a função falha silenciosamente ou retorna 0 registros.</div></div>
+</div>
+
+<!-- 7. RLS -->
+<div class="section" id="rls">
+  <div class="section-header"><div class="section-num">7</div><div class="section-title">RLS & Permissões</div></div>
+  <p>Row Level Security (RLS) está ativo em todas as tabelas. As políticas controlam o que cada perfil pode ver e modificar.</p>
+
+  <div class="table-wrap"><table>
+    <thead><tr><th>Tabela</th><th>gestao</th><th>vendedor</th><th>service_role</th></tr></thead>
+    <tbody>
+      <tr><td>usuarios</td><td>SELECT próprio</td><td>SELECT próprio</td><td>ALL</td></tr>
+      <tr><td>prestadores</td><td>ALL</td><td>SELECT próprio (via usuario_id)</td><td>ALL</td></tr>
+      <tr><td>uploads</td><td>ALL</td><td>—</td><td>ALL</td></tr>
+      <tr><td>fechamentos</td><td>ALL</td><td>SELECT (via prestador_id)</td><td>ALL</td></tr>
+      <tr><td>comissoes</td><td>ALL</td><td>SELECT (via prestador_id)</td><td>ALL</td></tr>
+      <tr><td>validacoes_mensais</td><td>ALL</td><td>SELECT + UPDATE próprio</td><td>ALL</td></tr>
+      <tr><td>checkpoints</td><td>ALL</td><td>—</td><td>ALL</td></tr>
+      <tr><td>solicitacoes_acesso</td><td>ALL</td><td>INSERT público</td><td>ALL</td></tr>
+    </tbody>
+  </table></div>
+
+  <div class="alert alert-warn"><div class="alert-icon">⚠️</div><div>Quando tabelas são criadas com "Automatically expose new tables" desmarcado no Supabase, o GRANT para service_role não é automático. É obrigatório executar <code>GRANT ALL ON tabela TO service_role;</code> manualmente.</div></div>
+</div>
+
+<!-- 8. EDGE FUNCTIONS -->
+<div class="section" id="edge">
+  <div class="section-header"><div class="section-num">8</div><div class="section-title">Edge Functions</div></div>
+
+  <div class="subsection"><div class="subsection-title">smart-service</div></div>
+  <p>Função principal de administração de usuários. Requer token de autenticação de usuário gestão. Usa SUPABASE_SERVICE_ROLE_KEY para operações admin.</p>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Rota (campo action)</th><th>Parâmetros</th><th>O que faz</th></tr></thead>
+    <tbody>
+      <tr><td>— (padrão, sem action)</td><td>email, nome, perfil, senha</td><td>Cria usuário no Auth + insere em usuarios + insere em prestadores (se vendedor)</td></tr>
+      <tr><td>atualizar_usuario</td><td>usuario_id, ativo (boolean)</td><td>Se ativo=false: bane por 87600h. Se ativo=true: remove ban.</td></tr>
+    </tbody>
+  </table></div>
+
+  <div class="subsection"><div class="subsection-title">clever-handler</div></div>
+  <p>Responsável pelo envio de e-mails via Resend. <strong>Status: pendente ativação</strong> — domínio e sender ainda não configurados.</p>
+  <div class="alert alert-warn"><div class="alert-icon">⚠️</div><div>O clever-handler existe mas apresenta EarlyDrop em algumas rotas. Todos os fluxos de e-mail estão desativados até a configuração do domínio no Resend.</div></div>
+</div>
+
+<!-- 9. PERFIS -->
+<div class="section" id="perfis">
+  <div class="section-header"><div class="section-num">9</div><div class="section-title">Perfis & Acessos</div></div>
+
+  <div class="subsection"><div class="subsection-title">Perfil: Gestão</div></div>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Funcionalidade</th><th>Acesso</th></tr></thead>
+    <tbody>
+      <tr><td>Dashboard com KPIs e tabelas</td><td>✅</td></tr>
+      <tr><td>Upload de arquivo de fechamento</td><td>✅</td></tr>
+      <tr><td>Rodar cálculo de comissões</td><td>✅</td></tr>
+      <tr><td>Checkpoints e auditoria</td><td>✅</td></tr>
+      <tr><td>Cadastro de parceiros</td><td>✅</td></tr>
+      <tr><td>Inativar/reativar parceiro (bloqueia Auth)</td><td>✅</td></tr>
+      <tr><td>Aprovar/rejeitar solicitações de acesso</td><td>✅</td></tr>
+      <tr><td>Validações — notificar, pagar, lote</td><td>✅</td></tr>
+      <tr><td>Exportar relatório Excel</td><td>✅</td></tr>
+      <tr><td>Extrato do parceiro (visão gestão)</td><td>✅</td></tr>
+    </tbody>
+  </table></div>
+
+  <div class="subsection"><div class="subsection-title">Perfil: Parceiro Comercial (Vendedor)</div></div>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Funcionalidade</th><th>Acesso</th></tr></thead>
+    <tbody>
+      <tr><td>Extrato próprio com filtro de período</td><td>✅</td></tr>
+      <tr><td>Gráfico de evolução mensal e pizza por produto</td><td>✅</td></tr>
+      <tr><td>Card de validação pendente com alerta</td><td>✅</td></tr>
+      <tr><td>Aprovar comissões do mês</td><td>✅</td></tr>
+      <tr><td>Contestar comissões com motivo</td><td>✅</td></tr>
+      <tr><td>Exportar extrato em PDF</td><td>✅</td></tr>
+      <tr><td>Atualizar dados bancários</td><td>✅</td></tr>
+      <tr><td>Ver dados de outro parceiro</td><td>❌ Bloqueado por RLS</td></tr>
+      <tr><td>Acessar dashboard de gestão</td><td>❌ Bloqueado por perfil</td></tr>
+    </tbody>
+  </table></div>
+
+  <div class="subsection"><div class="subsection-title">Usuários ativos (Junho 2026)</div></div>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Nome</th><th>Perfil</th><th>Status</th></tr></thead>
+    <tbody>
+      <tr><td>Rene Pires</td><td><span class="badge badge-navy">Gestão</span></td><td><span class="badge badge-green">✓ Ativo</span></td></tr>
+      <tr><td>Kamily Vitoria</td><td><span class="badge badge-navy">Gestão</span></td><td><span class="badge badge-green">✓ Ativo</span></td></tr>
+      <tr><td>Edite Pereira dos Santos Neta</td><td><span class="badge badge-green">Parceiro</span></td><td><span class="badge badge-green">✓ Ativo</span></td></tr>
+      <tr><td>João Silva</td><td><span class="badge badge-green">Parceiro</span></td><td><span class="badge badge-green">✓ Ativo</span></td></tr>
+      <tr><td>Maria Souza</td><td><span class="badge badge-green">Parceiro</span></td><td><span class="badge badge-green">✓ Ativo</span></td></tr>
+      <tr><td>Ana Costa</td><td><span class="badge badge-green">Parceiro</span></td><td><span class="badge badge-red">🔒 Bloqueado</span></td></tr>
+      <tr><td>Carlos Lima</td><td><span class="badge badge-green">Parceiro</span></td><td><span class="badge badge-red">🔒 Bloqueado</span></td></tr>
+      <tr><td>Leandro Brito Oliveira</td><td><span class="badge badge-green">Parceiro</span></td><td><span class="badge badge-red">🔒 Bloqueado</span></td></tr>
+    </tbody>
+  </table></div>
+</div>
+
+<!-- 10. FLUXOS -->
+<div class="section" id="fluxos">
+  <div class="section-header"><div class="section-num">10</div><div class="section-title">Fluxos Operacionais</div></div>
+
+  <div class="subsection"><div class="subsection-title">Fluxo principal — Upload até Pagamento</div></div>
+  <div class="flow">
+    <div class="flow-step">Upload .xlsx</div><div class="flow-arrow">→</div>
+    <div class="flow-step">processar_comissoes()</div><div class="flow-arrow">→</div>
+    <div class="flow-step">criar_validacoes_pendentes()</div><div class="flow-arrow">→</div>
+    <div class="flow-step">Parceiro valida</div><div class="flow-arrow">→</div>
+    <div class="flow-step green">Gestão confirma pagamento</div>
+  </div>
+  <div class="table-wrap" style="margin-top:16px;"><table>
+    <thead><tr><th>Etapa</th><th>Quem</th><th>Prazo</th><th>O que acontece</th></tr></thead>
+    <tbody>
+      <tr><td>Upload do fechamento</td><td>Gestão</td><td>Até 5 dias úteis do M+1</td><td>Arquivo lido, fechamentos inseridos, comissões calculadas, validações criadas</td></tr>
+      <tr><td>Validação pelo parceiro</td><td>Parceiro</td><td>Até dia 20 do M+1</td><td>Parceiro aprova ou contesta com motivo</td></tr>
+      <tr><td>Pagamento</td><td>Gestão</td><td>Até dia 10 do M+2</td><td>Gestão confirma pagamento (individual ou lote), registra data e observação</td></tr>
+    </tbody>
+  </table></div>
+
+  <div class="subsection"><div class="subsection-title">Fluxo de Acesso</div></div>
+  <div class="flow">
+    <div class="flow-step">Formulário público</div><div class="flow-arrow">→</div>
+    <div class="flow-step">solicitacoes_acesso (pendente)</div><div class="flow-arrow">→</div>
+    <div class="flow-step">Gestão aprova</div><div class="flow-arrow">→</div>
+    <div class="flow-step">smart-service cria usuário</div><div class="flow-arrow">→</div>
+    <div class="flow-step green">Acesso liberado</div>
+  </div>
+
+  <div class="subsection"><div class="subsection-title">Fluxo de Inativação de Parceiro</div></div>
+  <div class="flow">
+    <div class="flow-step">Gestão edita cadastro</div><div class="flow-arrow">→</div>
+    <div class="flow-step">Status → Inativo</div><div class="flow-arrow">→</div>
+    <div class="flow-step">Salvar</div><div class="flow-arrow">→</div>
+    <div class="flow-step">smart-service bana no Auth</div><div class="flow-arrow">→</div>
+    <div class="flow-step red" style="background:var(--efl-red);color:white;">Acesso bloqueado</div>
+  </div>
+
+  <div class="subsection"><div class="subsection-title">Fluxo de Exclusão de Arquivo</div></div>
+  <p>Ao excluir um upload: comissoes → validacoes_mensais → fechamentos → uploads (nessa ordem, respeitando FKs). O sistema faz o delete em cascata automaticamente.</p>
+</div>
+
+<!-- 11. REGRAS DE NEGÓCIO -->
+<div class="section" id="regras">
+  <div class="section-header"><div class="section-num">11</div><div class="section-title">Regras de Negócio</div></div>
+
+  <div class="subsection"><div class="subsection-title">Taxas de Comissão por Produto</div></div>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Produto</th><th>Base de Cálculo</th><th>Taxa</th><th>Exemplo</th></tr></thead>
+    <tbody>
+      <tr><td>FUEL</td><td>Receita eFleet (take rate sobre TPV)</td><td>20%</td><td>R$ 1.000 × 20% × fator = R$ 200</td></tr>
+      <tr><td>PASS</td><td>Mensalidade mensal do cliente</td><td>15%</td><td>R$ 500 × 15% × fator = R$ 75</td></tr>
+      <tr><td>FINES</td><td>Mensalidade mensal do cliente</td><td>15%</td><td>R$ 420 × 15% × 20% = R$ 12,60</td></tr>
+      <tr><td>PREMIUM</td><td>Mensalidade mensal do cliente</td><td>15%</td><td>R$ 250 × 15% × 20% = R$ 7,50</td></tr>
+    </tbody>
+  </table></div>
+
+  <div class="subsection"><div class="subsection-title">Curva C — Fator de Ramp-Up</div></div>
+  <p>A comissão cresce progressivamente nos primeiros 12 meses de cada produto. O mês é calculado a partir da data de ativação do produto.</p>
+  <div class="curva-grid">
+    <div class="curva-item"><div class="curva-mes">Mês 1</div><div class="curva-pct">20%</div></div>
+    <div class="curva-item"><div class="curva-mes">Mês 2</div><div class="curva-pct">40%</div></div>
+    <div class="curva-item"><div class="curva-mes">Mês 3</div><div class="curva-pct">60%</div></div>
+    <div class="curva-item"><div class="curva-mes">Mês 4–6</div><div class="curva-pct">80%</div></div>
+    <div class="curva-item full"><div class="curva-mes">Mês 7–12</div><div class="curva-pct">100%</div></div>
+    <div class="curva-item zero"><div class="curva-mes">Após 12</div><div class="curva-pct">0%</div></div>
+    <div class="curva-item zero"><div class="curva-mes">Churn</div><div class="curva-pct">R$0</div></div>
+  </div>
+  <p><strong>Fórmula do mês:</strong> <code>((ano_fim − ano_ativação) × 12 + (mês_fim − mês_ativação)) + 1</code></p>
+
+  <div class="subsection"><div class="subsection-title">Status do Cliente</div></div>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Status</th><th>Campo no arquivo</th><th>Efeito na comissão</th><th>Visual no extrato</th></tr></thead>
+    <tbody>
+      <tr><td>Ativo</td><td><code>ativo</code></td><td>Calcula normalmente</td><td>Valor em verde</td></tr>
+      <tr><td>Inadimplente</td><td><code>inadimplente</code></td><td>Comissão suspensa (R$0 temporário)</td><td>Badge "Cliente inadimplente"</td></tr>
+      <tr><td>Churn</td><td><code>churn</code></td><td>Comissão zerada definitivamente</td><td>Badge "Cliente em churn" + R$0</td></tr>
+    </tbody>
+  </table></div>
+
+  <div class="subsection"><div class="subsection-title">Janela de Comissão</div></div>
+  <p>Cada produto tem uma janela de 12 meses a partir da data de ativação. No mês 13 em diante, o fator de ramp é 0 e a comissão é zerada automaticamente. O sistema exibe um alerta ⚠ no extrato quando o cliente está no mês 11 ou 12.</p>
+
+  <div class="subsection"><div class="subsection-title">Formato do Arquivo de Fechamento</div></div>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Coluna</th><th>Descrição</th><th>Obrigatório</th></tr></thead>
+    <tbody>
+      <tr><td>vendedor_nome</td><td>Nome do parceiro — deve bater exatamente com prestadores.nome (case-insensitive)</td><td>✅</td></tr>
+      <tr><td>cliente_cnpj</td><td>CNPJ do cliente</td><td>✅</td></tr>
+      <tr><td>cliente_nome</td><td>Nome do cliente</td><td>✅</td></tr>
+      <tr><td>periodo_inicio / periodo_fim</td><td>Período de referência no formato YYYY-MM-DD</td><td>✅</td></tr>
+      <tr><td>status_cliente</td><td><code>ativo</code>, <code>inadimplente</code> ou <code>churn</code></td><td>✅</td></tr>
+      <tr><td>ativacao_fuel</td><td>Data de ativação do FUEL</td><td>Se houver receita_fuel</td></tr>
+      <tr><td>receita_fuel</td><td>Receita eFleet do FUEL no período</td><td>Se houver ativacao_fuel</td></tr>
+      <tr><td>ativacao_pass / receita_pass</td><td>Idem para PASS</td><td>Opcional</td></tr>
+      <tr><td>ativacao_fines / receita_fines</td><td>Idem para FINES</td><td>Opcional</td></tr>
+      <tr><td>ativacao_premium / receita_premium</td><td>Idem para PREMIUM</td><td>Opcional</td></tr>
+    </tbody>
+  </table></div>
+  <div class="alert alert-info"><div class="alert-icon">ℹ️</div><div>O sistema lê a aba chamada <code>FECHAMENTO_MES</code>. Se não existir, usa a primeira aba. O arquivo deve ser .xlsx ou .csv.</div></div>
+</div>
+
+<!-- 12. EMAIL -->
+<div class="section" id="email">
+  <div class="section-header"><div class="section-num">12</div><div class="section-title">Mensageria</div></div>
+  <div class="alert alert-danger"><div class="alert-icon">🚨</div><div>Os e-mails automáticos NÃO estão ativos. A integração com o Resend está implementada mas pendente de configuração de domínio e sender.</div></div>
+  <div class="table-wrap"><table>
+    <thead><tr><th>E-mail</th><th>Gatilho</th><th>Status</th></tr></thead>
+    <tbody>
+      <tr><td>Notificação de nova solicitação</td><td>Formulário público enviado</td><td><span class="badge badge-yellow">⚠️ Pendente</span></td></tr>
+      <tr><td>Boas-vindas ao usuário aprovado</td><td>Gestão aprova solicitação</td><td><span class="badge badge-yellow">⚠️ Pendente</span></td></tr>
+      <tr><td>Comissões disponíveis para validação</td><td>Gestão notifica parceiro</td><td><span class="badge badge-yellow">⚠️ Pendente</span></td></tr>
+      <tr><td>Confirmação de pagamento</td><td>Gestão confirma pagamento</td><td><span class="badge badge-yellow">⚠️ Pendente</span></td></tr>
+    </tbody>
+  </table></div>
+  <p>Para ativar: configurar domínio no Resend → atualizar sender no clever-handler → testar EarlyDrop → ativar variáveis de ambiente no Supabase.</p>
+</div>
+
+<!-- 13. ARMADILHAS -->
+<div class="section" id="armadilhas">
+  <div class="section-header"><div class="section-num">13</div><div class="section-title">Armadilhas Conhecidas</div></div>
+
+  <div class="trap"><div class="trap-title">RLS sem GRANT → silêncio total</div><div class="trap-text">Funções com SECURITY DEFINER que escrevem em tabelas protegidas precisam de GRANT explícito para service_role. Sem o GRANT, a função executa, retorna sucesso, mas não insere nada. Sempre executar: <code>GRANT ALL ON tabela TO service_role;</code></div></div>
+
+  <div class="trap"><div class="trap-title">.single() com resultado vazio → erro 406</div><div class="trap-text">Quando uma query retorna zero linhas e usa .single(), o Supabase retorna erro 406 Not Acceptable. Sempre usar .maybeSingle() quando o resultado pode ser nulo — especialmente em vw_acumulado_prestador para parceiros sem comissões.</div></div>
+
+  <div class="trap"><div class="trap-title">prestador_id nulo em fechamentos → sem validações</div><div class="trap-text">O campo prestador_id em fechamentos é preenchido no upload via match de nome (vendedor_nome = prestadores.nome, case-insensitive). Se os nomes não baterem exatamente, o prestador_id fica nulo e nenhuma validação é criada. Sempre verificar a grafia dos nomes.</div></div>
+
+  <div class="trap"><div class="trap-title">Editar arquivo grande no GitHub → perda de conteúdo</div><div class="trap-text">O editor do GitHub em mobile pode truncar arquivos grandes. Para edições em index.html ou vendedor.js, copiar o conteúdo para TextEdit primeiro, editar, e colar o arquivo completo de uma vez.</div></div>
+
+  <div class="trap"><div class="trap-title">inline onclick → event listener perdido</div><div class="trap-text">Nunca usar onclick inline no HTML. Todos os event listeners devem ser registrados dentro do DOMContentLoaded em app.js. Listeners inline não são reconhecidos pelo sistema de perfis e podem causar falhas silenciosas.</div></div>
+
+  <div class="trap"><div class="trap-title">app.js sobrescrito com conteúdo errado</div><div class="trap-text">Durante a sessão de desenvolvimento, o arquivo app.js foi acidentalmente sobrescrito com o conteúdo de solicitacoes.js, causando falha total no login. Sempre verificar o conteúdo do arquivo no GitHub antes de commitar.</div></div>
+
+  <div class="trap"><div class="trap-title">Ban no Auth não propaga automaticamente</div><div class="trap-text">Inativar um parceiro em prestadores.ativo não bloqueia o acesso automaticamente. O bloqueio exige uma chamada explícita ao smart-service com action: 'atualizar_usuario' e ativo: false. A comparação entre ativo anterior e novo deve ser feita antes de salvar.</div></div>
+
+  <div class="trap"><div class="trap-title">Corte de custo em mês N → efeito em N+1</div><div class="trap-text">Cortes executados em um mês só geram redução de receita no mês seguinte. Projeções devem refletir isso corretamente.</div></div>
+</div>
+
+<!-- 14. CHECKLIST -->
+<div class="section" id="checklist">
+  <div class="section-header"><div class="section-num">14</div><div class="section-title">Checklist Pré-Produção</div></div>
+  <div class="alert alert-warn"><div class="alert-icon">⚠️</div><div>Os itens abaixo ainda não foram concluídos antes do go-live com parceiros reais.</div></div>
+  <div style="margin-top:16px;">
+    <div class="check-item"><div class="check-box"></div><div>Configurar domínio e sender no Resend</div></div>
+    <div class="check-item"><div class="check-box"></div><div>Corrigir EarlyDrop no clever-handler</div></div>
+    <div class="check-item"><div class="check-box"></div><div>Reativar e-mail de boas-vindas no smart-service</div></div>
+    <div class="check-item"><div class="check-box"></div><div>Implementar hash de senha em solicitacoes_acesso (hoje em texto plano)</div></div>
+    <div class="check-item"><div class="check-box"></div><div>Aplicar constraint NOT NULL em validacoes_mensais.upload_id</div></div>
+    <div class="check-item"><div class="check-box"></div><div>Limpar dados de teste em solicitacoes_acesso</div></div>
+    <div class="check-item"><div class="check-box"></div><div>Configurar domínio customizado no Vercel</div></div>
+    <div class="check-item"><div class="check-box"></div><div>Definir status do Leandro Brito Oliveira (ativar ou manter bloqueado)</div></div>
+    <div class="check-item"><div class="check-box"></div><div>Testar badge vermelho em Pedidos de Acesso com solicitação real</div></div>
+    <div class="check-item"><div class="check-box"></div><div>Validar fluxo completo end-to-end com dados reais de pelo menos um parceiro</div></div>
+  </div>
+  <div style="margin-top:16px;">
+    <p style="font-weight:700;color:var(--efl-green-700);">Itens concluídos:</p>
+    <div class="check-item"><div class="check-box done"></div><div>Badge "Cliente inadimplente" no extrato do parceiro</div></div>
+    <div class="check-item"><div class="check-box done"></div><div>Badge "Cliente em churn" no extrato do parceiro</div></div>
+    <div class="check-item"><div class="check-box done"></div><div>Alerta de validação pendente no painel do parceiro</div></div>
+    <div class="check-item"><div class="check-box done"></div><div>Nomenclatura das abas (Cadastros / Pedidos de Acesso)</div></div>
+    <div class="check-item"><div class="check-box done"></div><div>Inativar cadastro bloqueia acesso no Auth</div></div>
+    <div class="check-item"><div class="check-box done"></div><div>prestador_id preenchido corretamente no upload</div></div>
+    <div class="check-item"><div class="check-box done"></div><div>Taxa de comissão mensalidades: 7% → 15%</div></div>
+    <div class="check-item"><div class="check-box done"></div><div>Erro 406 na vw_acumulado_prestador (.maybeSingle)</div></div>
+  </div>
+</div>
+
+<!-- 15. GLOSSÁRIO -->
+<div class="section" id="glossario">
+  <div class="section-header"><div class="section-num">15</div><div class="section-title">Glossário</div></div>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Termo</th><th>Definição</th></tr></thead>
+    <tbody>
+      <tr><td>ARGOS</td><td>Nome do sistema de comissões da eFleet</td></tr>
+      <tr><td>Curva C</td><td>Modelo de ramp-up progressivo de comissões durante os 12 primeiros meses de cada produto</td></tr>
+      <tr><td>Fator de ramp</td><td>Multiplicador da Curva C (0.2 a 1.0) aplicado ao cálculo da comissão</td></tr>
+      <tr><td>Fechamento</td><td>Arquivo mensal com dados de clientes, produtos, ativações e receitas de cada parceiro</td></tr>
+      <tr><td>TPV</td><td>Total Payment Volume — volume total transacionado, base do produto FUEL</td></tr>
+      <tr><td>Take rate</td><td>Taxa que a eFleet retém sobre o TPV — base de cálculo da receita FUEL</td></tr>
+      <tr><td>Suspensa</td><td>Comissão calculada mas não paga por inadimplência do cliente — pode ser recuperada</td></tr>
+      <tr><td>Zerada</td><td>Comissão cancelada definitivamente — cliente em churn ou fora da janela de 12 meses</td></tr>
+      <tr><td>Validação</td><td>Processo pelo qual o parceiro confirma os valores do mês antes do pagamento</td></tr>
+      <tr><td>Checkpoint</td><td>Log de auditoria do cálculo — resultado linha a linha de cada upload processado</td></tr>
+      <tr><td>Gestão</td><td>Perfil com acesso total ao sistema — upload, cálculo, pagamento, cadastros</td></tr>
+      <tr><td>Vendedor / Parceiro</td><td>Perfil do parceiro comercial — acesso apenas ao próprio extrato</td></tr>
+      <tr><td>smart-service</td><td>Edge Function que gerencia criação e bloqueio de usuários no Auth</td></tr>
+      <tr><td>clever-handler</td><td>Edge Function responsável pelo envio de e-mails via Resend</td></tr>
+      <tr><td>RLS</td><td>Row Level Security — política de segurança por linha no PostgreSQL</td></tr>
+      <tr><td>SECURITY DEFINER</td><td>Flag que faz uma função SQL executar com os privilégios do criador, não do chamador</td></tr>
+      <tr><td>Ban</td><td>Bloqueio de acesso no Supabase Auth — aplicado por 87600h (≈ 10 anos) na inativação</td></tr>
+      <tr><td>M+1 / M+2</td><td>Mês seguinte / dois meses após o mês de referência — usado nos prazos de pagamento</td></tr>
+      <tr><td>ICP</td><td>Ideal Customer Profile — perfil de cliente ideal da eFleet (50–200 veículos com margem)</td></tr>
+    </tbody>
+  </table></div>
+</div>
+
+</main>
+</body>
+</html>

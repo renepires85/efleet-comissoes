@@ -31,10 +31,10 @@ async function processarUpload(input, isArq) {
       ativacao_pass:    r.ativacao_pass    || null,
       ativacao_fines:   r.ativacao_fines   || null,
       ativacao_premium: r.ativacao_premium || null,
-      tpv_fuel:      r.tpv_fuel      ? parseFloat(r.tpv_fuel)      : null,
-      receita_fuel:  r.receita_fuel  ? parseFloat(r.receita_fuel)  : null,
-      receita_pass:  r.receita_pass  ? parseFloat(r.receita_pass)  : null,
-      receita_fines: r.receita_fines ? parseFloat(r.receita_fines) : null,
+      tpv_fuel:        r.tpv_fuel      ? parseFloat(r.tpv_fuel)      : null,
+      receita_fuel:    r.receita_fuel  ? parseFloat(r.receita_fuel)  : null,
+      receita_pass:    r.receita_pass  ? parseFloat(r.receita_pass)  : null,
+      receita_fines:   r.receita_fines ? parseFloat(r.receita_fines) : null,
       receita_premium: r.receita_premium ? parseFloat(r.receita_premium) : null,
       status_cliente: r.status_cliente || 'ativo'
     }));
@@ -61,40 +61,57 @@ async function processarUpload(input, isArq) {
 
 // ── PRÉ-PROCESSADOR ───────────────────────────────────────────────────────────
 function normalizarLinhas(rows) {
+  // Mapa de nomes completos e abreviações (com e sem ponto)
   const meses = {
-    'janeiro': '01', 'fevereiro': '02', 'marco': '03', 'março': '03',
-    'abril': '04', 'maio': '05', 'junho': '06', 'julho': '07',
-    'agosto': '08', 'setembro': '09', 'outubro': '10',
-    'novembro': '11', 'dezembro': '12'
+    'janeiro': '01', 'jan': '01',
+    'fevereiro': '02', 'fev': '02',
+    'marco': '03', 'março': '03', 'mar': '03',
+    'abril': '04', 'abr': '04',
+    'maio': '05', 'mai': '05',
+    'junho': '06', 'jun': '06',
+    'julho': '07', 'jul': '07',
+    'agosto': '08', 'ago': '08',
+    'setembro': '09', 'set': '09',
+    'outubro': '10', 'out': '10',
+    'novembro': '11', 'nov': '11',
+    'dezembro': '12', 'dez': '12'
   };
 
   function normalizarData(val) {
     if (!val || val.toString().trim() === '') return null;
     const s = val.toString().trim();
+
     // Já YYYY-MM-DD
     if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+
     // YYYY-M-D sem zeros
     if (/^\d{4}-\d{1,2}-\d{1,2}$/.test(s)) {
       const [y, m, d] = s.split('-');
       return `${y}-${m.padStart(2,'0')}-${d.padStart(2,'0')}`;
     }
-    // "4 maio, 2023" ou "4 de maio de 2023"
-    const match = s.toLowerCase().match(/(\d{1,2})\s+(?:de\s+)?(\w+)[,\s]+(\d{4})/);
+
+    // "1 jun., 2026" ou "4 maio, 2023" ou "4 de maio de 2023"
+    // Remove ponto de abreviação antes de processar
+    const sSemPonto = s.replace(/\./g, '');
+    const match = sSemPonto.toLowerCase().match(/(\d{1,2})\s+(?:de\s+)?(\w+)[,\s]+(\d{4})/);
     if (match) {
       const [, d, mes, y] = match;
-      const mesNorm = mes.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+      // Remove acentos para normalizar
+      const mesNorm = mes.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
       const m = meses[mesNorm];
       if (m) return `${y}-${m}-${d.padStart(2,'0')}`;
     }
+
     return null;
   }
 
   function normalizarValor(val) {
     if (!val || val.toString().trim() === '') return null;
     return val.toString()
-      .replace(/R\$\s*/gi, '')
-      .replace(/\./g, '')
-      .replace(',', '.')
+      .replace(/R\$\s*/gi, '')  // Remove "R$"
+      .replace(/\s/g, '')       // Remove espaços (milhar: "1 208 939,66" → "1208939,66")
+      .replace(/\./g, '')       // Remove pontos de milhar
+      .replace(',', '.')        // Troca vírgula decimal por ponto
       .trim();
   }
 
@@ -108,14 +125,15 @@ function normalizarLinhas(rows) {
   }
 
   return rows
+    // Linhas sem vendedor_nome são clientes sem comissão — ignorar silenciosamente
     .filter(r => r.vendedor_nome && r.vendedor_nome.toString().trim() !== '')
     .map(r => ({
-      periodo_inicio:  normalizarData(r.periodo_inicio),
-      periodo_fim:     normalizarData(r.periodo_fim || r.periodo_final),
-      vendedor_nome:   r.vendedor_nome?.toString().trim(),
-      cliente_cnpj:    r.cliente_cnpj?.toString().trim(),
-      cliente_nome:    r.cliente_nome?.toString().trim(),
-      status_cliente:  normalizarStatus(r.status_cliente || r.status_nome),
+      periodo_inicio:   normalizarData(r.periodo_inicio),
+      periodo_fim:      normalizarData(r.periodo_fim || r.periodo_final),
+      vendedor_nome:    r.vendedor_nome?.toString().trim(),
+      cliente_cnpj:     r.cliente_cnpj?.toString().trim(),
+      cliente_nome:     r.cliente_nome?.toString().trim(),
+      status_cliente:   normalizarStatus(r.status_cliente || r.status_nome),
       ativacao_fuel:    normalizarData(r.ativacao_fuel),
       ativacao_pass:    normalizarData(r.ativacao_pass),
       ativacao_fines:   normalizarData(r.ativacao_fines),
@@ -128,7 +146,7 @@ function normalizarLinhas(rows) {
     }));
 }
 
-// ── LER EXCEL ─────────────────────────────────────────────────────────────────
+// ── LER EXCEL / CSV ───────────────────────────────────────────────────────────
 function lerExcel(file) {
   return new Promise((res, rej) => {
     const r = new FileReader();
@@ -137,16 +155,29 @@ function lerExcel(file) {
     r.onload = e => {
       try {
         let raw;
+
         if (isCsv) {
-          // CSV precisa ser lido como texto
-          const wb = XLSX.read(e.target.result, { type: 'string', raw: false, dateNF: 'yyyy-mm-dd' });
+          // ── CSV do BI: separador vírgula, valores entre aspas ──────────────
+          const texto = e.target.result;
+
+          // Detecta separador: se a primeira linha tem mais "," que ";" usa vírgula
+          const primeiraLinha = texto.split('\n')[0];
+          const qtdVirgula = (primeiraLinha.match(/,/g) || []).length;
+          const qtdPonto   = (primeiraLinha.match(/;/g) || []).length;
+          const sep = qtdVirgula >= qtdPonto ? ',' : ';';
+
+          // Usa SheetJS com o separador correto
+          const wb = XLSX.read(texto, { type: 'string', raw: false, dateNF: 'yyyy-mm-dd', FS: sep });
           const ws = wb.Sheets[wb.SheetNames[0]];
           raw = XLSX.utils.sheet_to_json(ws, { raw: false, dateNF: 'yyyy-mm-dd' });
+
         } else {
+          // ── XLSX normal ────────────────────────────────────────────────────
           const wb = XLSX.read(e.target.result, { type: 'array', cellDates: true });
           const ws = wb.Sheets['FECHAMENTO_MES'] || wb.Sheets[wb.SheetNames[0]];
           raw = XLSX.utils.sheet_to_json(ws, { raw: false, dateNF: 'yyyy-mm-dd' });
         }
+
         if (!raw || !raw.length) throw new Error('Arquivo vazio ou formato inválido');
         res(normalizarLinhas(raw));
       } catch (err) { rej(err); }
@@ -154,7 +185,6 @@ function lerExcel(file) {
 
     r.onerror = rej;
 
-    // Diferencia o método de leitura conforme o tipo
     if (isCsv) {
       r.readAsText(file, 'utf-8');
     } else {
@@ -162,6 +192,8 @@ function lerExcel(file) {
     }
   });
 }
+
+// ── RODAR CÁLCULO ─────────────────────────────────────────────────────────────
 async function rodarCalculo() {
   showStatus('⏳ Verificando arquivos pendentes...', 'warn', 'upload-status');
   const { data: uploads } = await sb.from('uploads').select('*').order('criado_em', { ascending: true });

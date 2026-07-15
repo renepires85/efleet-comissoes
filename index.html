@@ -244,7 +244,28 @@
           <div class="kpi-card kpi-red"><div class="kpi-label">Erros</div><div class="kpi-value val-red" id="cp-err">—</div></div>
         </div>
         <div class="section">
-          <div class="section-header"><div><div class="section-title">Resultado linha a linha</div></div></div>
+          <div class="section-header"><div><div class="section-title">Resultado linha a linha</div><div class="section-sub" id="cp-filtro-info"></div></div></div>
+          <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;padding:14px 22px;border-bottom:1px solid rgba(255,255,255,0.06);">
+            <input class="input" id="cp-f-busca" placeholder="Buscar cliente, vendedor ou CNPJ..." style="width:250px;">
+            <select class="input" id="cp-f-produto" style="width:150px;">
+              <option value="">Produto: todos</option>
+              <option value="FUEL">FUEL</option>
+              <option value="PASS">PASS</option>
+              <option value="FINES">FINES</option>
+              <option value="PREMIUM">PREMIUM</option>
+            </select>
+            <select class="input" id="cp-f-status" style="width:160px;">
+              <option value="">Status: todos</option>
+              <option value="calculada">Calculada</option>
+              <option value="suspensa">Suspensa</option>
+              <option value="zerada">Zerada</option>
+              <option value="erro">Erro</option>
+            </select>
+            <select class="input" id="cp-f-erro" style="width:240px;">
+              <option value="">Erro: todos</option>
+            </select>
+            <button class="btn btn-ghost btn-sm" id="btn-cp-limpar">✕ Limpar filtros</button>
+          </div>
           <div class="table-wrap"><table>
             <thead><tr><th>Vendedor</th><th>Cliente</th><th>CNPJ</th><th>Produto</th><th>Mês</th><th>Ramp</th><th>Comissão</th><th>Status</th><th>Erro</th></tr></thead>
             <tbody id="tbody-cp-detalhe"></tbody>

@@ -75,6 +75,11 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Checkpoints
   document.getElementById('btn-cp-voltar').addEventListener('click', fecharDetalheCheckpoint);
   document.getElementById('btn-cp-baixar').addEventListener('click', baixarCheckpoint);
+  document.getElementById('cp-f-busca').addEventListener('input', renderCpDetalhe);
+  document.getElementById('cp-f-produto').addEventListener('change', renderCpDetalhe);
+  document.getElementById('cp-f-status').addEventListener('change', renderCpDetalhe);
+  document.getElementById('cp-f-erro').addEventListener('change', renderCpDetalhe);
+  document.getElementById('btn-cp-limpar').addEventListener('click', () => limparFiltrosCp());
 
   // ── VERIFICAR SESSÃO ────────────────────────────────────────────────────────
   const { data: { session } } = await sb.auth.getSession();

@@ -332,6 +332,14 @@ async function calcularCheckpoint(upload) {
   return { calculadas, nao_calculadas: erros };
 }
 
+let cpDetalhes = [];
+
+// Agrupa erros variáveis num rótulo único (ex: "Mês 13 fora da janela" → "Mês fora da janela")
+function categoriaErro(erro) {
+  if (!erro) return '';
+  return erro.replace(/Mês \d+/, 'Mês');
+}
+
 async function abrirDetalheCheckpoint(cpId) {
   const { data: cp } = await sb.from('checkpoints').select('*,uploads(nome_arquivo)').eq('id', cpId).single();
   if (!cp) return;
@@ -342,7 +350,43 @@ async function abrirDetalheCheckpoint(cpId) {
   document.getElementById('cp-total').textContent = cp.total_linhas;
   document.getElementById('cp-ok').textContent    = cp.calculadas;
   document.getElementById('cp-err').textContent   = cp.nao_calculadas;
-  const det = typeof cp.detalhes === 'string' ? JSON.parse(cp.detalhes) : cp.detalhes;
+  cpDetalhes = typeof cp.detalhes === 'string' ? JSON.parse(cp.detalhes) : (cp.detalhes || []);
+  limparFiltrosCp(false);
+  const erros = [...new Set(cpDetalhes.map(d => categoriaErro(d.erro)).filter(Boolean))].sort();
+  document.getElementById('cp-f-erro').innerHTML =
+    '<option value="">Erro: todos</option>' +
+    erros.map(e => `<option value="${e}">${e}</option>`).join('');
+  renderCpDetalhe();
+}
+
+function limparFiltrosCp(rerender = true) {
+  document.getElementById('cp-f-busca').value   = '';
+  document.getElementById('cp-f-produto').value = '';
+  document.getElementById('cp-f-status').value  = '';
+  document.getElementById('cp-f-erro').value    = '';
+  if (rerender) renderCpDetalhe();
+}
+
+function renderCpDetalhe() {
+  const busca   = document.getElementById('cp-f-busca').value.trim().toLowerCase();
+  const produto = document.getElementById('cp-f-produto').value;
+  const status  = document.getElementById('cp-f-status').value;
+  const erro    = document.getElementById('cp-f-erro').value;
+
+  const det = cpDetalhes.filter(d =>
+    (!busca   || `${d.cliente_nome} ${d.vendedor_nome} ${d.cliente_cnpj}`.toLowerCase().includes(busca)) &&
+    (!produto || d.produto === produto) &&
+    (!status  || d.status === status) &&
+    (!erro    || categoriaErro(d.erro) === erro)
+  );
+
+  document.getElementById('cp-filtro-info').textContent =
+    det.length === cpDetalhes.length ? `${cpDetalhes.length} linhas` : `${det.length} de ${cpDetalhes.length} linhas`;
+
+  if (!det.length) {
+    document.getElementById('tbody-cp-detalhe').innerHTML = '<tr><td colspan="9" class="loading">Nenhuma linha corresponde aos filtros.</td></tr>';
+    return;
+  }
   document.getElementById('tbody-cp-detalhe').innerHTML = det.map(d => {
     const pct     = d.fator_ramp != null ? Math.round(d.fator_ramp * 100) : null;
     const stBadge = d.status === 'calculada' ? 'badge-green' : d.status === 'suspensa' ? 'badge-yellow' : d.status === 'zerada' ? 'badge-blue' : 'badge-red';

@@ -106,13 +106,25 @@ function normalizarLinhas(rows) {
   }
 
   function normalizarValor(val) {
-    if (!val || val.toString().trim() === '') return null;
-    return val.toString()
+    if (val === null || val === undefined || val.toString().trim() === '') return null;
+    let s = val.toString()
       .replace(/R\$\s*/gi, '')  // Remove "R$"
       .replace(/\s/g, '')       // Remove espaços (milhar: "1 208 939,66" → "1208939,66")
-      .replace(/\./g, '')       // Remove pontos de milhar
-      .replace(',', '.')        // Troca vírgula decimal por ponto
       .trim();
+    const temVirgula = s.includes(','), temPonto = s.includes('.');
+    if (temVirgula && temPonto) {
+      // Os dois presentes: o separador mais à direita é o decimal
+      // BR "1.234,56" → 1234.56 · US "1,234.56" → 1234.56
+      if (s.lastIndexOf(',') > s.lastIndexOf('.')) s = s.replace(/\./g, '').replace(',', '.');
+      else s = s.replace(/,/g, '');
+    } else if (temVirgula) {
+      // Só vírgula: uma = decimal BR ("609,64") · várias = milhar US ("1,234,567")
+      s = s.split(',').length === 2 ? s.replace(',', '.') : s.replace(/,/g, '');
+    } else if (temPonto) {
+      // Só ponto: um = decimal US ("130053.886865") · vários = milhar BR ("1.234.567")
+      if (s.split('.').length > 2) s = s.replace(/\./g, '');
+    }
+    return s;
   }
 
   function normalizarStatus(val) {
@@ -166,10 +178,12 @@ function lerExcel(file) {
           const qtdPonto   = (primeiraLinha.match(/;/g) || []).length;
           const sep = qtdVirgula >= qtdPonto ? ',' : ';';
 
-          // Usa SheetJS com o separador correto
-          const wb = XLSX.read(texto, { type: 'string', raw: false, dateNF: 'yyyy-mm-dd', FS: sep });
+          // Usa SheetJS com o separador correto, em modo raw: sem conversão
+          // automática de datas/números (que desloca datas ISO 1 dia pelo fuso).
+          // Toda normalização de data e valor é feita em normalizarLinhas.
+          const wb = XLSX.read(texto, { type: 'string', raw: true, FS: sep });
           const ws = wb.Sheets[wb.SheetNames[0]];
-          raw = XLSX.utils.sheet_to_json(ws, { raw: false, dateNF: 'yyyy-mm-dd' });
+          raw = XLSX.utils.sheet_to_json(ws, { raw: true });
 
         } else {
           // ── XLSX normal ────────────────────────────────────────────────────

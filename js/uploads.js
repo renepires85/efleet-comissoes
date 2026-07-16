@@ -90,6 +90,12 @@ function normalizarLinhas(rows) {
       return `${y}-${m.padStart(2,'0')}-${d.padStart(2,'0')}`;
     }
 
+    // DD/MM/YYYY (formato BR)
+    if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(s)) {
+      const [d, m, y] = s.split('/');
+      return `${y}-${m.padStart(2,'0')}-${d.padStart(2,'0')}`;
+    }
+
     // "1 jun., 2026" ou "4 maio, 2023" ou "4 de maio de 2023"
     // Remove ponto de abreviação antes de processar
     const sSemPonto = s.replace(/\./g, '');
@@ -136,7 +142,7 @@ function normalizarLinhas(rows) {
     return 'ativo';
   }
 
-  return rows
+  const linhas = rows
     // Linhas sem vendedor_nome são clientes sem comissão — ignorar silenciosamente
     .filter(r => r.vendedor_nome && r.vendedor_nome.toString().trim() !== '')
     .map(r => ({
@@ -156,6 +162,24 @@ function normalizarLinhas(rows) {
       receita_fines:    normalizarValor(r.receita_fines),
       receita_premium:  normalizarValor(r.receita_premium),
     }));
+
+  // Arquivo re-salvo com a coluna CNPJ tratada como número perde dígitos
+  // (vira notação científica, ex: "2,4241E+13") — dado irrecuperável, rejeitar.
+  const corrompida = linhas.find(l => /\d[,.]?\d*E\+\d+/i.test(l.cliente_cnpj || ''));
+  if (corrompida) {
+    throw new Error(`CNPJ corrompido em notação científica ("${corrompida.cliente_cnpj}" em ${corrompida.cliente_nome}). ` +
+      'O arquivo foi re-salvo com a coluna CNPJ como número e perdeu dígitos. ' +
+      'Exporte novamente da origem com a coluna CNPJ formatada como texto.');
+  }
+
+  // Linhas de período inválido geram erro obscuro no banco — avisar com contexto.
+  const semPeriodo = linhas.find(l => !l.periodo_inicio || !l.periodo_fim);
+  if (semPeriodo) {
+    throw new Error(`Não reconheci a data de período da linha "${semPeriodo.cliente_nome}". ` +
+      'Use datas como AAAA-MM-DD, DD/MM/AAAA ou "1 jun., 2026".');
+  }
+
+  return linhas;
 }
 
 // ── LER EXCEL / CSV ───────────────────────────────────────────────────────────

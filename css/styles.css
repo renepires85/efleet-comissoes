@@ -127,6 +127,7 @@ tbody td{padding:12px 16px;font-size:13px;color:var(--efl-gray-200);border-botto
 tbody tr:last-child td{border-bottom:none;}
 tbody tr:hover td{background:rgba(255,255,255,0.02);}
 .td-mono{font-family:var(--efl-font-head);font-size:12px;}
+.td-codigo{font-family:var(--efl-font-head);font-size:10px;font-weight:700;letter-spacing:.05em;color:var(--efl-gray-500);margin-top:2px;}
 .td-muted{color:var(--efl-gray-500);}
 .td-green{color:var(--efl-green-400);font-family:var(--efl-font-head);font-weight:600;}
 .td-yellow{color:var(--efl-yellow);font-family:var(--efl-font-head);}

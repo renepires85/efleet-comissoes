@@ -3,7 +3,10 @@ async function carregarPrestadores() {
   const { data } = await sb.from('prestadores').select('*').order('nome');
   if (!data) return;
   document.getElementById('tbody-prestadores').innerHTML = data.map(p => `<tr>
-    <td><strong style="color:#fff;font-family:var(--efl-font-head);">${p.nome}</strong></td>
+    <td>
+      <strong style="color:#fff;font-family:var(--efl-font-head);">${p.nome}</strong>
+      ${p.codigo ? `<div class="td-codigo">${p.codigo}</div>` : ''}
+    </td>
     <td><span class="badge ${p.tipo === 'PJ' ? 'badge-blue' : 'badge-green'}">${p.tipo}</span></td>
     <td class="td-mono td-muted">${p.documento}</td>
     <td class="td-muted">${p.email}</td>

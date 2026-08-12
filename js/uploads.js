@@ -264,7 +264,10 @@ async function carregarArquivos() {
   document.getElementById('tbody-arquivos').innerHTML = data.map(u => {
     const calc = processados.has(u.id);
     return `<tr>
-      <td><strong style="color:#fff;font-family:var(--efl-font-head);">${u.nome_arquivo}</strong></td>
+      <td>
+        <strong style="color:#fff;font-family:var(--efl-font-head);">${u.nome_arquivo}</strong>
+        ${u.codigo ? `<div class="td-codigo">${u.codigo}</div>` : ''}
+      </td>
       <td class="td-muted">${formatPeriodo(u.periodo_inicio, u.periodo_fim)}</td>
       <td class="td-mono">${u.total_linhas}</td>
       <td><span class="badge ${calc ? 'badge-green' : 'badge-yellow'}">${calc ? 'Calculado' : 'Pendente'}</span></td>

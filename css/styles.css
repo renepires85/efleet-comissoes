@@ -141,6 +141,7 @@ tbody tr:hover td{background:rgba(255,255,255,0.02);}
 .badge-blue{background:rgba(45,98,176,0.2);color:var(--efl-navy-200);border:1px solid rgba(45,98,176,0.4);}
 .badge-teal{background:rgba(32,184,160,0.15);color:#60d8c8;border:1px solid rgba(32,184,160,0.3);}
 .badge-orange{background:rgba(240,128,48,0.15);color:#f0a870;border:1px solid rgba(240,128,48,0.3);}
+.badge-purple{background:rgba(128,96,208,0.15);color:#b09ce8;border:1px solid rgba(128,96,208,0.3);}
 
 /* ── RAMP BAR ────────────────────────────────────────────────────────────────── */
 .ramp-bar{display:flex;align-items:center;gap:8px;}

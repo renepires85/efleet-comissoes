@@ -2,10 +2,15 @@
 async function carregarPrestadores() {
   const { data } = await sb.from('prestadores').select('*').order('nome');
   if (!data) return;
-  document.getElementById('tbody-prestadores').innerHTML = data.map(p => `<tr>
+  document.getElementById('tbody-prestadores').innerHTML = data.map(p => {
+    const ehIndicador = p.tipo_parceiro === 'indicador';
+    return `<tr>
     <td>
       <strong style="color:#fff;font-family:var(--efl-font-head);">${p.nome}</strong>
-      ${p.codigo ? `<div class="td-codigo">${p.codigo}</div>` : ''}
+      <div style="display:flex;gap:6px;align-items:center;margin-top:2px;">
+        ${p.codigo ? `<span class="td-codigo">${p.codigo}</span>` : ''}
+        ${ehIndicador ? `<span class="badge badge-purple" style="padding:1px 6px;font-size:9px;">Indicador</span>` : ''}
+      </div>
     </td>
     <td><span class="badge ${p.tipo === 'PJ' ? 'badge-blue' : 'badge-green'}">${p.tipo}</span></td>
     <td class="td-mono td-muted">${p.documento}</td>
@@ -14,7 +19,13 @@ async function carregarPrestadores() {
     <td class="td-muted">${p.pix || '—'}</td>
     <td><span class="badge ${p.ativo ? 'badge-green' : 'badge-yellow'}">${p.ativo ? 'Ativo' : 'Inativo'}</span></td>
     <td><button class="btn btn-ghost btn-sm" onclick="abrirModalPrestador('${p.id}')">Editar</button></td>
-  </tr>`).join('');
+  </tr>`;
+  }).join('');
+}
+
+function toggleContratoIndicador() {
+  const ehIndicador = document.getElementById('f-tipo-parceiro').value === 'indicador';
+  document.getElementById('bloco-contrato-indicador').style.display = ehIndicador ? 'block' : 'none';
 }
 
 // ── MODAL PRESTADOR ───────────────────────────────────────────────────────────
@@ -26,6 +37,7 @@ async function abrirModalPrestador(id) {
       document.getElementById('modal-prestador-title').textContent = p.nome;
       document.getElementById('f-id').value          = p.id;
       document.getElementById('f-nome').value        = p.nome || '';
+      document.getElementById('f-tipo-parceiro').value = p.tipo_parceiro || 'vendedor';
       document.getElementById('f-tipo').value        = p.tipo || 'PJ';
       document.getElementById('f-doc').value         = p.documento || '';
       document.getElementById('f-email').value       = p.email || '';
@@ -38,6 +50,20 @@ async function abrirModalPrestador(id) {
       document.getElementById('f-pix').value         = p.pix || '';
       document.getElementById('f-status').value      = p.ativo ? 'true' : 'false';
       toggleDoc();
+      toggleContratoIndicador();
+
+      if (p.tipo_parceiro === 'indicador') {
+        const { data: contrato } = await sb.from('contratos_indicadores')
+          .select('*').eq('prestador_id', id).order('data_inicio', { ascending: false }).limit(1).maybeSingle();
+        if (contrato) {
+          document.getElementById('f-ind-percentual').value  = contrato.percentual_comissao;
+          document.getElementById('f-ind-recorrencia').value = contrato.periodo_recorrencia;
+          document.getElementById('f-ind-status').value      = contrato.status;
+          document.querySelectorAll('.f-ind-produto').forEach(cb => {
+            cb.checked = (contrato.produtos_elegiveis || []).includes(cb.value);
+          });
+        }
+      }
     }
   }
   document.getElementById('modal-prestador').style.display = 'flex';
@@ -60,10 +86,16 @@ function limparModalPrestador() {
   ['f-nome', 'f-tipo', 'f-doc', 'f-email', 'f-status'].forEach(id => {
     const el = document.getElementById(id); el.disabled = false; el.style.opacity = '1';
   });
-  document.getElementById('f-tipo').value   = 'PJ';
+  document.getElementById('f-tipo').value          = 'PJ';
+  document.getElementById('f-tipo-parceiro').value = 'vendedor';
   document.getElementById('f-banco').value  = '';
   document.getElementById('f-status').value = 'true';
+  document.getElementById('f-ind-percentual').value  = '';
+  document.getElementById('f-ind-recorrencia').value = '12';
+  document.getElementById('f-ind-status').value      = 'pendente';
+  document.querySelectorAll('.f-ind-produto').forEach(cb => cb.checked = false);
   toggleDoc();
+  toggleContratoIndicador();
 }
 
 function fecharModalPrestador() { document.getElementById('modal-prestador').style.display = 'none'; }
@@ -71,8 +103,10 @@ function fecharModalPrestador() { document.getElementById('modal-prestador').sty
 async function salvarPrestador() {
   const id = document.getElementById('f-id').value;
   const ativo = document.getElementById('f-status').value === 'true';
+  const tipoParceiro = document.getElementById('f-tipo-parceiro').value;
   const payload = {
     nome:            document.getElementById('f-nome').value,
+    tipo_parceiro:   tipoParceiro,
     tipo:            document.getElementById('f-tipo').value,
     documento:       document.getElementById('f-doc').value,
     email:           document.getElementById('f-email').value,
@@ -86,7 +120,7 @@ async function salvarPrestador() {
     ativo
   };
 
-  let error;
+  let error, prestadorId = id;
   if (id) {
     const { data: prestadorAtual } = await sb.from('prestadores').select('ativo, usuario_id').eq('id', id).single();
     ({ error } = await sb.from('prestadores').update(payload).eq('id', id));
@@ -115,10 +149,28 @@ async function salvarPrestador() {
       }
     }
   } else {
-    const { data: cod } = await sb.rpc('gerar_codigo_prestador', { p_nome: payload.nome });
-    payload.codigo = cod;
-    ({ error } = await sb.from('prestadores').insert(payload));
+    // codigo é gerado automaticamente pelo trigger set_codigo (prefixo VND/IND
+    // conforme tipo_parceiro) — não passar aqui.
+    const { data: novo, error: errIns } = await sb.from('prestadores').insert(payload).select('id').single();
+    error = errIns;
     if (error) { alert('Erro: ' + error.message); return; }
+    prestadorId = novo.id;
+  }
+
+  if (tipoParceiro === 'indicador') {
+    const contratoPayload = {
+      prestador_id:        prestadorId,
+      percentual_comissao: parseFloat(document.getElementById('f-ind-percentual').value) || 0,
+      periodo_recorrencia: parseInt(document.getElementById('f-ind-recorrencia').value, 10),
+      produtos_elegiveis:  [...document.querySelectorAll('.f-ind-produto:checked')].map(cb => cb.value),
+      status:              document.getElementById('f-ind-status').value
+    };
+    const { data: existente } = await sb.from('contratos_indicadores')
+      .select('id').eq('prestador_id', prestadorId).order('data_inicio', { ascending: false }).limit(1).maybeSingle();
+    const { error: errContrato } = existente
+      ? await sb.from('contratos_indicadores').update(contratoPayload).eq('id', existente.id)
+      : await sb.from('contratos_indicadores').insert(contratoPayload);
+    if (errContrato) { alert('Cadastro salvo, mas houve erro ao salvar o contrato: ' + errContrato.message); return; }
   }
 
   fecharModalPrestador();

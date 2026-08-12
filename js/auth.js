@@ -52,9 +52,11 @@ async function setupApp(usuario) {
     document.getElementById('nav-tabs').style.display = 'block';
     document.getElementById('view-gestao').classList.add('active');
     await carregarGestao();
-  } else if (usuario.perfil === 'vendedor') {
+  } else if (usuario.perfil === 'vendedor' || usuario.perfil === 'indicador') {
+    // Indicador reaproveita a mesma tela de extrato do vendedor: o RLS já
+    // restringe pelo prestador_id, então cada um só vê seus próprios dados.
     badge.className = 'topbar-badge badge-vendedor';
-    badge.textContent = 'Parceiro Comercial';
+    badge.textContent = usuario.perfil === 'indicador' ? 'Parceiro Indicador' : 'Parceiro Comercial';
     document.getElementById('nav-tabs').style.display = 'none';
     const { data: prest } = await sb.from('prestadores').select('id,nome').eq('usuario_id', currentUser.id).single();
     if (prest) { currentPrestadorId = prest.id; await carregarVendedor(prest.id, prest.nome); }

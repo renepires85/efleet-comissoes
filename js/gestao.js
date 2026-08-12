@@ -136,17 +136,19 @@ async function carregarGestao() {
  
 // ── TABELA CLIENTES ───────────────────────────────────────────────────────────
 async function carregarTabelaClientes(pFim) {
-  const { data } = await sb.from('vw_extrato_prestador').select('*,prestadores(nome)').eq('periodo_fim', pFim).order('cliente_nome');
+  const { data } = await sb.from('vw_extrato_prestador').select('*,prestadores(nome,tipo_parceiro)').eq('periodo_fim', pFim).order('cliente_nome');
   if (!data) return;
   document.getElementById('tbody-clientes').innerHTML = data.map(c => {
     const pct = Math.round(parseFloat(c.fator_ramp) * 100);
     const cs = c.status === 'suspensa'
       ? `<span class="td-yellow">Suspensa</span>`
       : `<span class="td-green">${fmtR(c.comissao_bruta)}</span>`;
+    const ehIndicador = c.prestadores?.tipo_parceiro === 'indicador';
     return `<tr>
       <td><strong style="color:#fff;">${c.cliente_nome}</strong></td>
       <td class="td-mono td-muted">${c.cliente_cnpj}</td>
       <td>${c.prestadores?.nome || '—'}</td>
+      <td><span class="badge ${ehIndicador ? 'badge-purple' : 'badge-blue'}">${ehIndicador ? 'Indicador' : 'Vendedor'}</span></td>
       <td><span class="badge ${c.produto === 'FUEL' ? 'badge-blue' : 'badge-green'}">${c.produto}</span></td>
       <td class="td-mono">${c.mes_curva}/12</td>
       <td><div class="ramp-bar"><div class="ramp-track"><div class="ramp-fill ${pct < 100 ? 'partial' : ''}" style="width:${pct}%"></div></div><div class="ramp-label">${pct}%</div></div></td>

@@ -323,45 +323,66 @@ async function carregarCheckpoints() {
   </tr>`).join('');
 }
 
+// O checkpoint é um snapshot de auditoria: precisa mostrar não só o que foi
+// calculado, mas por que uma linha NÃO foi (prestador não encontrado, mês
+// fora da janela, cliente suspenso). Antes, essa explicação vinha de uma
+// reimplementação própria em JS do match e da Curva C — terceira cópia da
+// mesma lógica (a primeira é o match_prestador_por_nome do banco, a segunda
+// era o processar_comissoes antigo antes de ser unificado com a primeira).
+// Podia divergir do cálculo real: um nome que o fuzzy match do banco resolve
+// aparecia aqui como "Prestador não encontrado" porque o match daqui só
+// aceitava nome idêntico.
+//
+// Agora não recalcula nada — lê o que processar_comissoes (chamado logo
+// antes) já gravou em comissoes, e só reconstrói a explicação para o único
+// caso que não deixa rastro lá: fechamento cujo vendedor não bateu com
+// nenhum prestador (a linha inteira é pulada, não vira comissão nenhuma).
 async function calcularCheckpoint(upload) {
-  const { data: fechamentos } = await sb.from('fechamentos').select('*').eq('upload_id', upload.id);
-  const { data: prestadores } = await sb.from('prestadores').select('id,nome').eq('ativo', true);
-  const prestMap = {};
-  (prestadores || []).forEach(p => prestMap[p.nome.trim().toLowerCase()] = p.id);
+  const { data: calculadas_rows } = await sb.from('comissoes')
+    .select('produto,mes_curva,fator_ramp,comissao_bruta,status,cliente_cnpj,cliente_nome,fechamentos!inner(upload_id,vendedor_nome,status_cliente)')
+    .eq('fechamentos.upload_id', upload.id);
+
+  const { data: sem_match } = await sb.from('fechamentos')
+    .select('vendedor_nome,cliente_cnpj,cliente_nome,ativacao_fuel,receita_fuel,ativacao_pass,receita_pass,ativacao_fines,receita_fines,ativacao_premium,receita_premium')
+    .eq('upload_id', upload.id)
+    .is('prestador_id', null)
+    .not('vendedor_nome', 'is', null);
+
   const detalhes = []; let calculadas = 0, erros = 0;
-  for (const f of (fechamentos || [])) {
+
+  (calculadas_rows || []).forEach(c => {
+    const fatorZero = parseFloat(c.fator_ramp) === 0;
+    const erro = c.status === 'suspensa' ? 'Cliente inadimplente — comissão suspensa'
+               : c.status === 'zerada' && fatorZero ? `Mês ${c.mes_curva} fora da janela`
+               : null; // 'zerada' por churn continua sem erro explícito — renderCpDetalhe já cobre com o rótulo padrão
+    detalhes.push({
+      vendedor_nome: c.fechamentos.vendedor_nome, cliente_cnpj: c.cliente_cnpj, cliente_nome: c.cliente_nome,
+      produto: c.produto, mes_curva: c.mes_curva, fator_ramp: c.fator_ramp,
+      comissao: c.status === 'calculada' ? parseFloat(c.comissao_bruta) : 0,
+      status: c.status, erro
+    });
+    if (c.status === 'calculada') calculadas++; else erros++;
+  });
+
+  (sem_match || []).forEach(f => {
     const produtos = [
-      { produto: 'FUEL',    ativacao: f.ativacao_fuel,    receita: f.receita_fuel,    taxa: 0.20 },
-      { produto: 'PASS',    ativacao: f.ativacao_pass,    receita: f.receita_pass,    taxa: 0.15 },
-      { produto: 'FINES',   ativacao: f.ativacao_fines,   receita: f.receita_fines,   taxa: 0.15 },
-      { produto: 'PREMIUM', ativacao: f.ativacao_premium, receita: f.receita_premium, taxa: 0.15 },
+      { produto: 'FUEL',    ativacao: f.ativacao_fuel,    receita: f.receita_fuel },
+      { produto: 'PASS',    ativacao: f.ativacao_pass,    receita: f.receita_pass },
+      { produto: 'FINES',   ativacao: f.ativacao_fines,   receita: f.receita_fines },
+      { produto: 'PREMIUM', ativacao: f.ativacao_premium, receita: f.receita_premium },
     ];
-    const pid = prestMap[f.vendedor_nome.trim().toLowerCase()];
-    for (const p of produtos) {
-      if (!p.ativacao || !p.receita) continue;
-      if (!pid) {
-        detalhes.push({ vendedor_nome: f.vendedor_nome, cliente_cnpj: f.cliente_cnpj, cliente_nome: f.cliente_nome, produto: p.produto, mes_curva: null, fator_ramp: null, comissao: 0, status: 'erro', erro: 'Prestador não encontrado' });
-        erros++; continue;
-      }
-      const atDate  = new Date(p.ativacao + 'T12:00:00');
-      const fimDate = new Date(f.periodo_fim + 'T12:00:00');
-      const mes = ((fimDate.getFullYear() - atDate.getFullYear()) * 12 + (fimDate.getMonth() - atDate.getMonth())) + 1;
-      let fator = 0;
-      if (mes === 1) fator = 0.2;
-      else if (mes === 2) fator = 0.4;
-      else if (mes === 3) fator = 0.6;
-      else if (mes >= 4 && mes <= 6) fator = 0.8;
-      else if (mes >= 7 && mes <= 12) fator = 1.0;
-      if (fator === 0 && mes > 0) {
-        detalhes.push({ vendedor_nome: f.vendedor_nome, cliente_cnpj: f.cliente_cnpj, cliente_nome: f.cliente_nome, produto: p.produto, mes_curva: mes, fator_ramp: fator, comissao: 0, status: 'erro', erro: `Mês ${mes} fora da janela` });
-        erros++; continue;
-      }
-      const comissao  = parseFloat(p.receita) * p.taxa * fator;
-      const statusCom = f.status_cliente === 'churn' ? 'zerada' : f.status_cliente === 'inadimplente' ? 'suspensa' : 'calculada';
-      detalhes.push({ vendedor_nome: f.vendedor_nome, cliente_cnpj: f.cliente_cnpj, cliente_nome: f.cliente_nome, produto: p.produto, mes_curva: mes, fator_ramp: fator, comissao: statusCom === 'calculada' ? comissao : 0, status: statusCom, erro: null });
-      if (statusCom === 'calculada') calculadas++; else erros++;
-    }
-  }
+    produtos.filter(p => p.ativacao && p.receita).forEach(p => {
+      detalhes.push({
+        vendedor_nome: f.vendedor_nome, cliente_cnpj: f.cliente_cnpj, cliente_nome: f.cliente_nome,
+        produto: p.produto, mes_curva: null, fator_ramp: null, comissao: 0,
+        status: 'erro', erro: 'Prestador não encontrado'
+      });
+      erros++;
+    });
+  });
+
+  detalhes.sort((a, b) => a.vendedor_nome.localeCompare(b.vendedor_nome) || a.cliente_nome.localeCompare(b.cliente_nome));
+
   await sb.from('checkpoints').insert({
     upload_id: upload.id, periodo_inicio: upload.periodo_inicio, periodo_fim: upload.periodo_fim,
     total_linhas: detalhes.length, calculadas, nao_calculadas: erros,

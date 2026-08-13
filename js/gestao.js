@@ -173,13 +173,20 @@ async function carregarTabelaClientes(pFim) {
  
 // ── VALIDAÇÕES GESTÃO ─────────────────────────────────────────────────────────
 async function carregarValidacoesGestao() {
-  const { data } = await sb.from('validacoes_mensais')
-    .select('*,prestadores(nome)')
+  const { data: bruto } = await sb.from('validacoes_mensais')
+    .select('*,prestadores(nome,ativo)')
     .order('criado_em', { ascending: false });
- 
-  const pend = (data || []).filter(v => v.status === 'pendente').length;
+
+  // Vendedor/indicador inativo não aparece na lista de trabalho — mesma regra
+  // já aplicada em Alertas e no Total a pagar. Atenção: isso também esconde
+  // validações "aprovado" (dinheiro já aprovado, só falta pagar) de quem foi
+  // inativado — para quitar essas, reative o prestador temporariamente, pague,
+  // e inative de novo.
+  const data = (bruto || []).filter(v => v.prestadores?.ativo !== false);
+
+  const pend = data.filter(v => v.status === 'pendente').length;
   document.getElementById('g-pendentes').textContent = pend;
- 
+
   if (!data || !data.length) {
     document.getElementById('tbody-validacoes').innerHTML = '<tr><td colspan="9" class="loading">Nenhuma validação.</td></tr>';
     renderBotoesLote([], []);

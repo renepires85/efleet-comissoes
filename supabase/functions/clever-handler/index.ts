@@ -141,6 +141,98 @@ serve(async (req) => {
       return json({ ok: true, enviados: 1, id });
     }
 
+    // ─── Gestão: relatório semanal de pendências (fechamento + aprovações) ───
+    // Disparado pelo pg_cron (ver migration 20260813_relatorio_semanal_gestao.sql),
+    // toda segunda 08h — mas pode ser chamado manualmente sem parâmetros.
+    if (action === "relatorio_semanal") {
+      const supabase = createClient(
+        Deno.env.get("SUPABASE_URL")!,
+        Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+      );
+
+      const { data: destinatarios } = await supabase.rpc("emails_gestao");
+      const emails = (destinatarios ?? []).map((d: { email: string }) => d.email).filter(Boolean);
+      if (!emails.length) {
+        return json({ ok: true, enviados: 0, motivo: "nenhum usuário com perfil gestao ativo" });
+      }
+
+      const { data: fechamentosPendentes } = await supabase
+        .from("uploads")
+        .select("nome_arquivo, periodo_inicio, periodo_fim, criado_em")
+        .neq("status", "concluido")
+        .order("criado_em", { ascending: true });
+
+      const { data: validacoesPendentes } = await supabase
+        .from("validacoes_mensais")
+        .select("status, periodo_inicio, periodo_fim, criado_em, prestadores(nome)")
+        .in("status", ["pendente", "contestado"])
+        .order("status", { ascending: true })
+        .order("criado_em", { ascending: true });
+
+      const fmtData = (d: string) => new Date(d + "T12:00:00").toLocaleDateString("pt-BR");
+      const fmtPeriodo = (ini: string, fim: string) => `${fmtData(ini)} – ${fmtData(fim)}`;
+      const diasDesde = (d: string) => Math.floor((Date.now() - new Date(d).getTime()) / 86400000);
+
+      const linhaFechamento = (u: { nome_arquivo: string; periodo_inicio: string; periodo_fim: string; criado_em: string }) => `
+        <tr>
+          <td style="padding:8px 0;border-top:1px solid #e6e9ef;color:#111827;font-size:13px;">${u.nome_arquivo}</td>
+          <td style="padding:8px 0;border-top:1px solid #e6e9ef;color:#6b7280;font-size:13px;">${fmtPeriodo(u.periodo_inicio, u.periodo_fim)}</td>
+          <td style="padding:8px 0;border-top:1px solid #e6e9ef;color:#6b7280;font-size:13px;text-align:right;">${diasDesde(u.criado_em)}d</td>
+        </tr>`;
+
+      const linhaValidacao = (v: { status: string; periodo_inicio: string; periodo_fim: string; criado_em: string; prestadores: { nome: string } | null }) => `
+        <tr>
+          <td style="padding:8px 0;border-top:1px solid #e6e9ef;color:#111827;font-size:13px;">${v.prestadores?.nome ?? "—"}</td>
+          <td style="padding:8px 0;border-top:1px solid #e6e9ef;color:#6b7280;font-size:13px;">${fmtPeriodo(v.periodo_inicio, v.periodo_fim)}</td>
+          <td style="padding:8px 0;border-top:1px solid #e6e9ef;font-size:13px;text-align:center;">
+            <span style="display:inline-block;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:bold;${
+              v.status === "contestado" ? "background:#fde2e2;color:#c0392b;" : "background:#fef3d6;color:#a5721a;"
+            }">${v.status === "contestado" ? "Contestado" : "Pendente"}</span>
+          </td>
+          <td style="padding:8px 0;border-top:1px solid #e6e9ef;color:#6b7280;font-size:13px;text-align:right;">${diasDesde(v.criado_em)}d</td>
+        </tr>`;
+
+      const secaoFechamentos = !fechamentosPendentes?.length
+        ? `<p style="margin:0 0 24px;color:#6b7280;font-size:13px;">✓ Nenhum fechamento pendente de cálculo.</p>`
+        : `<table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:24px;">
+             <tr><th style="text-align:left;color:#6b7280;font-size:11px;text-transform:uppercase;padding-bottom:6px;">Arquivo</th><th style="text-align:left;color:#6b7280;font-size:11px;text-transform:uppercase;padding-bottom:6px;">Período</th><th style="text-align:right;color:#6b7280;font-size:11px;text-transform:uppercase;padding-bottom:6px;">Enviado há</th></tr>
+             ${fechamentosPendentes.map(linhaFechamento).join("")}
+           </table>`;
+
+      const secaoValidacoes = !validacoesPendentes?.length
+        ? `<p style="margin:0;color:#6b7280;font-size:13px;">✓ Nenhuma validação pendente ou contestada.</p>`
+        : `<table width="100%" cellpadding="0" cellspacing="0">
+             <tr><th style="text-align:left;color:#6b7280;font-size:11px;text-transform:uppercase;padding-bottom:6px;">Parceiro</th><th style="text-align:left;color:#6b7280;font-size:11px;text-transform:uppercase;padding-bottom:6px;">Período</th><th style="text-align:center;color:#6b7280;font-size:11px;text-transform:uppercase;padding-bottom:6px;">Status</th><th style="text-align:right;color:#6b7280;font-size:11px;text-transform:uppercase;padding-bottom:6px;">Há</th></tr>
+             ${validacoesPendentes.map(linhaValidacao).join("")}
+           </table>`;
+
+      const hoje = new Date().toLocaleDateString("pt-BR");
+      const html = layout(`<tr><td style="padding:28px;">
+          <h2 style="margin:0 0 4px;color:#111827;font-size:20px;">Pendências da semana</h2>
+          <p style="margin:0 0 24px;color:#6b7280;font-size:13px;">Resumo gerado em ${hoje}</p>
+
+          <h3 style="margin:0 0 10px;color:#111827;font-size:14px;">📁 Fechamentos pendentes de cálculo (${fechamentosPendentes?.length ?? 0})</h3>
+          ${secaoFechamentos}
+
+          <h3 style="margin:0 0 10px;color:#111827;font-size:14px;">✅ Aprovações pendentes (${validacoesPendentes?.length ?? 0})</h3>
+          ${secaoValidacoes}
+
+          <div style="margin-top:28px;">${botao("Abrir o sistema")}</div>
+        </td></tr>`);
+
+      const totalPend = (fechamentosPendentes?.length ?? 0) + (validacoesPendentes?.length ?? 0);
+      const id = await enviarResend(
+        resendKey,
+        emails,
+        totalPend > 0
+          ? `eFleet · ${totalPend} pendência(s) aguardando você`
+          : "eFleet · Nenhuma pendência esta semana",
+        html,
+      );
+
+      return json({ ok: true, enviados: emails.length, fechamentos: fechamentosPendentes?.length ?? 0, validacoes: validacoesPendentes?.length ?? 0, id });
+    }
+
     return json({ ok: false, error: `Action inválida: ${action}` }, 400);
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);

@@ -16,16 +16,13 @@ async function processarUpload(input, isArq) {
     });
     if (uerr) throw new Error('Erro ao salvar upload: ' + uerr.message);
 
-    // Busca prestadores para vincular pelo nome
-    const { data: prestadores } = await sb.from('prestadores').select('id, nome').eq('ativo', true);
-    const prestMap = {};
-    (prestadores || []).forEach(p => prestMap[p.nome.trim().toLowerCase()] = p.id);
-
+    // prestador_id não é mais adivinhado aqui: processar_comissoes (chamado
+    // logo abaixo) preenche com match_prestador_por_nome no banco — mesma
+    // fonte usada em comissoes, sem duas lógicas de match dessincronizando.
     const linhas = rows.map(r => ({
       upload_id: uid, uploader_id: currentUser.id,
       periodo_inicio: r.periodo_inicio, periodo_fim: r.periodo_fim,
       vendedor_nome: r.vendedor_nome,
-      prestador_id: prestMap[r.vendedor_nome?.trim().toLowerCase()] || null,
       cliente_cnpj: r.cliente_cnpj, cliente_nome: r.cliente_nome,
       ativacao_fuel:    r.ativacao_fuel    || null,
       ativacao_pass:    r.ativacao_pass    || null,

@@ -1,10 +1,81 @@
+// ── ALERTAS (independente de período) ─────────────────────────────────────────
+// Alertas cobrem TODAS as validações em aberto, de qualquer mês — nunca podem
+// ficar reféns de o período selecionado (ex: "Último mês") ter algum resumo
+// calculado. Virou função própria, chamada nos dois ramos de carregarGestao,
+// depois de um bug real: mês novo sem nenhum fechamento calculado ainda fazia
+// vw_resumo_prestador vir vazia, batia no `return` antecipado, e pulava os
+// alertas inteiros — mesmo eles não tendo nada a ver com o período do KPI.
+async function carregarAlertas() {
+  const { data: todasVals } = await sb.from('validacoes_mensais')
+    .select('*,prestadores(nome,ativo)')
+    .not('status', 'eq', 'pago')
+    .order('periodo_fim', { ascending: false });
+
+  const { data: baixados } = await sb.from('alertas_baixados').select('validacao_id,tipo');
+  const baixadoSet = new Set((baixados || []).map(b => `${b.validacao_id}|${b.tipo}`));
+  const estaBaixado = (id, tipo) => baixadoSet.has(`${id}|${tipo}`);
+
+  const hoje = new Date();
+  const alertas = { contestadas: [], aprovadas: [], prazoVencendo: [], pagamentoAtrasado: [] };
+
+  (todasVals || [])
+    .filter(v => v.prestadores?.ativo !== false) // vendedor/indicador inativo não gera alerta
+    .forEach(v => {
+      const periodoFim = new Date(v.periodo_fim + 'T12:00:00');
+      const m1 = new Date(periodoFim.getFullYear(), periodoFim.getMonth() + 1, 1);
+      const m2 = new Date(periodoFim.getFullYear(), periodoFim.getMonth() + 2, 1);
+      const prazoPagamento = new Date(m2.getFullYear(), m2.getMonth(), 10);
+
+      if (v.status === 'contestado') {
+        if (!estaBaixado(v.id, 'contestada')) alertas.contestadas.push(v);
+      } else if (v.status === 'aprovado') {
+        if (hoje > prazoPagamento) {
+          if (!estaBaixado(v.id, 'pagamento_atrasado')) alertas.pagamentoAtrasado.push(v);
+        } else {
+          if (!estaBaixado(v.id, 'aprovada_aguardando_pagamento')) alertas.aprovadas.push(v);
+        }
+      } else if (v.status === 'pendente') {
+        const alertaA = new Date(m1.getFullYear(), m1.getMonth(), 15);
+        if (hoje >= alertaA) {
+          if (!estaBaixado(v.id, 'prazo_vencendo')) alertas.prazoVencendo.push(v);
+        }
+      }
+    });
+
+  const ab = document.getElementById('g-alerts');
+  const al = [];
+  if (alertas.contestadas.length > 0) al.push(`✗ ${alertas.contestadas.length} contestação(ões)`);
+  if (alertas.pagamentoAtrasado.length > 0) al.push(`🚨 ${alertas.pagamentoAtrasado.length} pagamento(s) atrasado(s)`);
+  if (alertas.prazoVencendo.length > 0) al.push(`⏰ ${alertas.prazoVencendo.length} prazo vencendo`);
+  if (alertas.aprovadas.length > 0) al.push(`✅ ${alertas.aprovadas.length} aguardando pagamento`);
+
+  if (al.length > 0) {
+    ab.style.display = 'flex';
+    ab.textContent = al.join(' · ');
+    ab.style.color = (alertas.contestadas.length > 0 || alertas.pagamentoAtrasado.length > 0)
+      ? 'var(--efl-red)' : 'var(--efl-yellow)';
+  } else {
+    ab.style.display = 'none';
+  }
+
+  const tabBtn = document.getElementById('tab-btn-alertas');
+  if (tabBtn) {
+    const totalBadge = alertas.contestadas.length + alertas.pagamentoAtrasado.length + alertas.prazoVencendo.length;
+    tabBtn.innerHTML = totalBadge > 0
+      ? `Alertas <span style="background:var(--efl-red);color:#fff;border-radius:999px;font-size:10px;font-weight:700;padding:2px 7px;margin-left:6px;">${totalBadge}</span>`
+      : 'Alertas';
+  }
+
+  document.getElementById('alertas-content').innerHTML = buildAlertasHTML(alertas);
+}
+
 // ── CARREGAR GESTÃO ───────────────────────────────────────────────────────────
 async function carregarGestao() {
   const { ini, fim } = getPeriodoDates(periodoAtual);
   const { data: resumos } = await sb.from('vw_resumo_prestador').select('*')
     .gte('periodo_fim', fmtDate(ini)).lte('periodo_fim', fmtDate(fim))
     .order('periodo_fim', { ascending: false });
- 
+
   if (!resumos || !resumos.length) {
     document.getElementById('tbody-parceiros').innerHTML = '<tr><td colspan="9" class="loading">Nenhum dado no período.</td></tr>';
     document.getElementById('g-total').textContent = 'R$ 0';
@@ -12,6 +83,7 @@ async function carregarGestao() {
     document.getElementById('g-ativas').textContent = '0';
     document.getElementById('g-suspensas').textContent = 'R$ 0';
     document.getElementById('g-pendentes').textContent = '0';
+    await carregarAlertas();
     await carregarValidacoesGestao();
     await carregarSelectParceiros();
     return;
@@ -37,72 +109,6 @@ async function carregarGestao() {
   document.getElementById('g-sub1').textContent = `${Object.keys(porParceiro).length} parceiros`;
   document.getElementById('g-ativas').textContent = ta;
   document.getElementById('g-suspensas').textContent = fmtR(ts);
- 
-  const { data: todasVals } = await sb.from('validacoes_mensais')
-    .select('*,prestadores(nome,ativo)')
-    .not('status', 'eq', 'pago')
-    .order('periodo_fim', { ascending: false });
-
-  const { data: baixados } = await sb.from('alertas_baixados').select('validacao_id,tipo');
-  const baixadoSet = new Set((baixados || []).map(b => `${b.validacao_id}|${b.tipo}`));
-  const estaBaixado = (id, tipo) => baixadoSet.has(`${id}|${tipo}`);
-
-  const hoje = new Date();
-
-  const alertas = {
-    contestadas: [],
-    aprovadas: [],
-    prazoVencendo: [],
-    pagamentoAtrasado: []
-  };
-
-  (todasVals || [])
-    .filter(v => v.prestadores?.ativo !== false) // vendedor/indicador inativo não gera alerta
-    .forEach(v => {
-    const periodoFim = new Date(v.periodo_fim + 'T12:00:00');
-    const m1 = new Date(periodoFim.getFullYear(), periodoFim.getMonth() + 1, 1);
-    const m2 = new Date(periodoFim.getFullYear(), periodoFim.getMonth() + 2, 1);
-    const prazoPagamento = new Date(m2.getFullYear(), m2.getMonth(), 10);
-
-    if (v.status === 'contestado') {
-      if (!estaBaixado(v.id, 'contestada')) alertas.contestadas.push(v);
-    } else if (v.status === 'aprovado') {
-      if (hoje > prazoPagamento) {
-        if (!estaBaixado(v.id, 'pagamento_atrasado')) alertas.pagamentoAtrasado.push(v);
-      } else {
-        if (!estaBaixado(v.id, 'aprovada_aguardando_pagamento')) alertas.aprovadas.push(v);
-      }
-    } else if (v.status === 'pendente') {
-      const alertaA = new Date(m1.getFullYear(), m1.getMonth(), 15);
-      if (hoje >= alertaA) {
-        if (!estaBaixado(v.id, 'prazo_vencendo')) alertas.prazoVencendo.push(v);
-      }
-    }
-  });
- 
-  const ab = document.getElementById('g-alerts');
-  const al = [];
-  if (alertas.contestadas.length > 0) al.push(`✗ ${alertas.contestadas.length} contestação(ões)`);
-  if (alertas.pagamentoAtrasado.length > 0) al.push(`🚨 ${alertas.pagamentoAtrasado.length} pagamento(s) atrasado(s)`);
-  if (alertas.prazoVencendo.length > 0) al.push(`⏰ ${alertas.prazoVencendo.length} prazo vencendo`);
-  if (alertas.aprovadas.length > 0) al.push(`✅ ${alertas.aprovadas.length} aguardando pagamento`);
- 
-  if (al.length > 0) {
-    ab.style.display = 'flex';
-    ab.textContent = al.join(' · ');
-    ab.style.color = (alertas.contestadas.length > 0 || alertas.pagamentoAtrasado.length > 0)
-      ? 'var(--efl-red)' : 'var(--efl-yellow)';
-  } else {
-    ab.style.display = 'none';
-  }
- 
-  const tabBtn = document.getElementById('tab-btn-alertas');
-  if (tabBtn) {
-    const totalBadge = alertas.contestadas.length + alertas.pagamentoAtrasado.length + alertas.prazoVencendo.length;
-    tabBtn.innerHTML = totalBadge > 0
-      ? `Alertas <span style="background:var(--efl-red);color:#fff;border-radius:999px;font-size:10px;font-weight:700;padding:2px 7px;margin-left:6px;">${totalBadge}</span>`
-      : 'Alertas';
-  }
  
   const { data: vals } = await sb.from('validacoes_mensais').select('*')
     .gte('periodo_fim', fmtDate(ini)).lte('periodo_fim', fmtDate(fim))
@@ -135,9 +141,9 @@ async function carregarGestao() {
  
   const ultimo = resumos[0].periodo_fim;
   await carregarTabelaClientes(ultimo);
+  await carregarAlertas();
   await carregarValidacoesGestao();
   await carregarSelectParceiros();
-  document.getElementById('alertas-content').innerHTML = buildAlertasHTML(alertas);
 }
  
 // ── TABELA CLIENTES ───────────────────────────────────────────────────────────

@@ -23,9 +23,83 @@ async function carregarPrestadores() {
   }).join('');
 }
 
-function toggleContratoIndicador() {
+async function toggleContratoIndicador() {
   const ehIndicador = document.getElementById('f-tipo-parceiro').value === 'indicador';
   document.getElementById('bloco-contrato-indicador').style.display = ehIndicador ? 'block' : 'none';
+
+  // Se está editando um prestador já salvo e virou indicador agora, mostra
+  // (e carrega) os clientes vinculados sem precisar reabrir o modal.
+  const id = document.getElementById('f-id').value;
+  if (ehIndicador && id) {
+    document.getElementById('bloco-clientes-vinculados').style.display = 'block';
+    await carregarClientesVinculados(id);
+  }
+}
+
+// ── CLIENTES VINCULADOS AO INDICADOR ──────────────────────────────────────────
+// Mapa cliente_cnpj -> cliente_nome mais recente, montado a partir do
+// histórico de fechamentos (única fonte de nome de cliente que existe no
+// sistema — não há um cadastro de clientes separado). Cacheado por sessão.
+let mapaClientesFechamentos = null;
+
+async function carregarMapaClientesFechamentos() {
+  if (mapaClientesFechamentos) return mapaClientesFechamentos;
+  const { data } = await sb.from('fechamentos')
+    .select('cliente_cnpj,cliente_nome,criado_em')
+    .order('criado_em', { ascending: false });
+  mapaClientesFechamentos = new Map();
+  (data || []).forEach(f => {
+    if (!mapaClientesFechamentos.has(f.cliente_cnpj)) {
+      mapaClientesFechamentos.set(f.cliente_cnpj, f.cliente_nome);
+    }
+  });
+  const dl = document.getElementById('dl-clientes-fechamentos');
+  dl.innerHTML = [...mapaClientesFechamentos.entries()]
+    .map(([cnpj, nome]) => `<option value="${cnpj}" label="${nome}"></option>`).join('');
+  return mapaClientesFechamentos;
+}
+
+async function carregarClientesVinculados(indicadorId) {
+  await carregarMapaClientesFechamentos();
+  const { data } = await sb.from('clientes_indicadores').select('cliente_cnpj').eq('indicador_id', indicadorId).order('cliente_cnpj');
+  const lista = document.getElementById('lista-clientes-vinculados');
+  if (!data || !data.length) {
+    lista.innerHTML = `<div style="font-size:12.5px;color:var(--efl-gray-500);">Nenhum cliente vinculado ainda.</div>`;
+    return;
+  }
+  lista.innerHTML = data.map(v => {
+    const nome = mapaClientesFechamentos.get(v.cliente_cnpj) || '(sem fechamento registrado)';
+    return `<div style="display:flex;align-items:center;justify-content:space-between;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.07);border-radius:6px;padding:7px 10px;">
+      <div><strong style="font-size:13px;color:#fff;">${nome}</strong><span class="td-mono td-muted" style="margin-left:8px;font-size:11px;">${v.cliente_cnpj}</span></div>
+      <button class="btn btn-ghost btn-sm" style="padding:2px 8px;font-size:12px;" onclick="removerClienteIndicador('${v.cliente_cnpj}', '${indicadorId}')">✕</button>
+    </div>`;
+  }).join('');
+}
+
+async function adicionarClienteIndicador() {
+  const indicadorId = document.getElementById('f-id').value;
+  if (!indicadorId) { alert('Salve o cadastro do indicador antes de vincular clientes.'); return; }
+  const input = document.getElementById('f-ind-novo-cliente');
+  const cnpj = input.value.replace(/\D/g, '');
+  if (!cnpj) { alert('Digite ou selecione um cliente.'); return; }
+
+  const { data: existente } = await sb.from('clientes_indicadores').select('indicador_id').eq('cliente_cnpj', cnpj).maybeSingle();
+  if (existente && existente.indicador_id !== indicadorId) {
+    const nomeAtual = mapaClientesFechamentos?.get(cnpj) || cnpj;
+    if (!confirm(`${nomeAtual} já está vinculado a outro indicador. Transferir para este?`)) return;
+  }
+
+  const { error } = await sb.from('clientes_indicadores').upsert({ cliente_cnpj: cnpj, indicador_id: indicadorId });
+  if (error) { alert('Erro ao vincular: ' + error.message); return; }
+  input.value = '';
+  await carregarClientesVinculados(indicadorId);
+}
+
+async function removerClienteIndicador(cnpj, indicadorId) {
+  if (!confirm('Desvincular este cliente do indicador?')) return;
+  const { error } = await sb.from('clientes_indicadores').delete().eq('cliente_cnpj', cnpj);
+  if (error) { alert('Erro ao desvincular: ' + error.message); return; }
+  await carregarClientesVinculados(indicadorId);
 }
 
 // ── MODAL PRESTADOR ───────────────────────────────────────────────────────────
@@ -50,7 +124,9 @@ async function abrirModalPrestador(id) {
       document.getElementById('f-pix').value         = p.pix || '';
       document.getElementById('f-status').value      = p.ativo ? 'true' : 'false';
       toggleDoc();
-      toggleContratoIndicador();
+      // toggleContratoIndicador já cuida de mostrar e carregar os clientes
+      // vinculados, já que f-id foi preenchido acima.
+      await toggleContratoIndicador();
 
       if (p.tipo_parceiro === 'indicador') {
         const { data: contrato } = await sb.from('contratos_indicadores')
@@ -94,6 +170,8 @@ function limparModalPrestador() {
   document.getElementById('f-ind-recorrencia').value = '12';
   document.getElementById('f-ind-status').value      = 'pendente';
   document.querySelectorAll('.f-ind-produto').forEach(cb => cb.checked = false);
+  document.getElementById('bloco-clientes-vinculados').style.display = 'none';
+  document.getElementById('f-ind-novo-cliente').value = '';
   toggleDoc();
   toggleContratoIndicador();
 }

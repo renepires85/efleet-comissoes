@@ -376,6 +376,15 @@
           </div>
         </div>
       </div>
+      <div id="bloco-clientes-vinculados" style="display:none;">
+        <label class="input-label">Clientes vinculados</label>
+        <div id="lista-clientes-vinculados" style="display:flex;flex-direction:column;gap:6px;margin:8px 0 12px;"></div>
+        <div style="display:flex;gap:8px;">
+          <input class="input" id="f-ind-novo-cliente" list="dl-clientes-fechamentos" placeholder="Digite o CNPJ ou nome do cliente...">
+          <datalist id="dl-clientes-fechamentos"></datalist>
+          <button class="btn btn-ghost btn-sm" onclick="adicionarClienteIndicador()" style="white-space:nowrap;">+ Vincular</button>
+        </div>
+      </div>
     </div>
     <div class="section-divider">Dados bancários</div>
     <div class="form-grid">

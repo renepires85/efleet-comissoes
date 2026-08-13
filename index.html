@@ -406,6 +406,24 @@
   </div>
 </div>
 
+<!-- MODAL: BAIXA DE ALERTA -->
+<div class="modal-overlay" id="modal-baixa-alerta">
+  <div class="modal-box" style="width:440px;" onclick="event.stopPropagation()">
+    <button class="modal-close" id="btn-fechar-baixa-alerta">✕</button>
+    <div class="modal-title">Dar baixa no alerta</div>
+    <div class="modal-sub" id="baixa-alerta-resumo">—</div>
+    <div class="form-field">
+      <label class="input-label">Justificativa</label>
+      <textarea class="input" id="baixa-alerta-justificativa" rows="4" placeholder="Por que este alerta pode parar de aparecer? O ponto em aberto na origem não é resolvido — só o aviso é encerrado." style="resize:vertical;"></textarea>
+    </div>
+    <p style="font-size:11.5px;color:var(--efl-gray-500);margin:-6px 0 8px;">A baixa fica registrada com seu usuário e a data. Dá para reabrir depois.</p>
+    <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:8px;">
+      <button class="btn btn-ghost btn-md" id="btn-cancelar-baixa-alerta">Cancelar</button>
+      <button class="btn btn-warning btn-md" id="btn-confirmar-baixa-alerta">Dar baixa</button>
+    </div>
+  </div>
+</div>
+
 <!-- MODAL: CONVITE -->
 <div class="modal-overlay" id="modal-convite">
   <div class="modal-box" style="width:440px;" onclick="event.stopPropagation()">

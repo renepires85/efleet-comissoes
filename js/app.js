@@ -60,6 +60,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('btn-fechar-contestar').addEventListener('click', fecharModalContestar);
   document.getElementById('btn-cancelar-contestar').addEventListener('click', fecharModalContestar);
   document.getElementById('btn-confirmar-contestar').addEventListener('click', confirmarContestacao);
+  document.getElementById('btn-fechar-baixa-alerta').addEventListener('click', fecharModalBaixaAlerta);
+  document.getElementById('btn-cancelar-baixa-alerta').addEventListener('click', fecharModalBaixaAlerta);
+  document.getElementById('btn-confirmar-baixa-alerta').addEventListener('click', confirmarBaixaAlerta);
 
   // Pagamento
   document.getElementById('btn-fechar-pagamento').addEventListener('click', fecharModalPagamento);

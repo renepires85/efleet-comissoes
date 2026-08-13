@@ -39,37 +39,43 @@ async function carregarGestao() {
   document.getElementById('g-suspensas').textContent = fmtR(ts);
  
   const { data: todasVals } = await sb.from('validacoes_mensais')
-    .select('*,prestadores(nome)')
+    .select('*,prestadores(nome,ativo)')
     .not('status', 'eq', 'pago')
     .order('periodo_fim', { ascending: false });
- 
+
+  const { data: baixados } = await sb.from('alertas_baixados').select('validacao_id,tipo');
+  const baixadoSet = new Set((baixados || []).map(b => `${b.validacao_id}|${b.tipo}`));
+  const estaBaixado = (id, tipo) => baixadoSet.has(`${id}|${tipo}`);
+
   const hoje = new Date();
- 
+
   const alertas = {
     contestadas: [],
     aprovadas: [],
     prazoVencendo: [],
     pagamentoAtrasado: []
   };
- 
-  (todasVals || []).forEach(v => {
+
+  (todasVals || [])
+    .filter(v => v.prestadores?.ativo !== false) // vendedor/indicador inativo não gera alerta
+    .forEach(v => {
     const periodoFim = new Date(v.periodo_fim + 'T12:00:00');
     const m1 = new Date(periodoFim.getFullYear(), periodoFim.getMonth() + 1, 1);
     const m2 = new Date(periodoFim.getFullYear(), periodoFim.getMonth() + 2, 1);
     const prazoPagamento = new Date(m2.getFullYear(), m2.getMonth(), 10);
- 
+
     if (v.status === 'contestado') {
-      alertas.contestadas.push(v);
+      if (!estaBaixado(v.id, 'contestada')) alertas.contestadas.push(v);
     } else if (v.status === 'aprovado') {
       if (hoje > prazoPagamento) {
-        alertas.pagamentoAtrasado.push(v);
+        if (!estaBaixado(v.id, 'pagamento_atrasado')) alertas.pagamentoAtrasado.push(v);
       } else {
-        alertas.aprovadas.push(v);
+        if (!estaBaixado(v.id, 'aprovada_aguardando_pagamento')) alertas.aprovadas.push(v);
       }
     } else if (v.status === 'pendente') {
       const alertaA = new Date(m1.getFullYear(), m1.getMonth(), 15);
       if (hoje >= alertaA) {
-        alertas.prazoVencendo.push(v);
+        if (!estaBaixado(v.id, 'prazo_vencendo')) alertas.prazoVencendo.push(v);
       }
     }
   });
@@ -369,39 +375,105 @@ async function carregarExtratoParceiro(pid) {
 }
  
 // ── ALERTAS ───────────────────────────────────────────────────────────────────
+// Alerta não é uma entidade própria — é recalculado a cada carregamento a
+// partir de validacoes_mensais. "Dar baixa" não resolve o ponto em aberto na
+// origem, só silencia aquele alerta específico (chave: validação + tipo) até
+// a situação mudar de verdade — com justificativa obrigatória, registrada.
+function linhaAlerta(v, tipo, cor) {
+  const nome = (v.prestadores?.nome || '—').replace(/'/g, "\\'");
+  const periodo = formatPeriodo(v.periodo_inicio, v.periodo_fim);
+  return `<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:7px 0;border-top:1px solid rgba(255,255,255,0.07);">
+    <span style="font-size:13px;color:${cor};"><strong>${v.prestadores?.nome || '—'}</strong> — ${periodo}</span>
+    <button class="btn btn-ghost btn-sm" style="flex:none;padding:2px 10px;font-size:12px;" onclick="abrirModalBaixaAlerta('${v.id}','${tipo}','${nome}','${periodo}')">Dar baixa</button>
+  </div>`;
+}
+
+function blocoAlerta(icone, titulo, lista, tipo, cor, fundo, borda) {
+  if (!lista.length) return '';
+  return `<div style="padding:16px;background:${fundo};border:1px solid ${borda};border-radius:var(--efl-r-md);margin-bottom:12px;">
+    <div style="font-size:13px;color:${cor};margin-bottom:2px;">${icone} <strong>${lista.length} ${titulo}</strong></div>
+    ${lista.map(v => linhaAlerta(v, tipo, cor)).join('')}
+  </div>`;
+}
+
 function buildAlertasHTML(alertas) {
   let h = '';
- 
-  if (alertas.contestadas.length > 0) {
-    const nomes = alertas.contestadas.map(v => `<strong>${v.prestadores?.nome || '—'}</strong> (${formatPeriodo(v.periodo_inicio, v.periodo_fim)})`).join(', ');
-    h += `<div style="padding:16px;background:rgba(232,64,64,0.08);border:1px solid rgba(232,64,64,0.2);border-radius:var(--efl-r-md);margin-bottom:12px;font-size:13px;color:var(--efl-red);">
-      ✗ <strong>${alertas.contestadas.length} contestação(ões) pendente(s)</strong> — ${nomes}. Acesse a aba Validações para revisar.
-    </div>`;
-  }
- 
-  if (alertas.pagamentoAtrasado.length > 0) {
-    const nomes = alertas.pagamentoAtrasado.map(v => `<strong>${v.prestadores?.nome || '—'}</strong> (${formatPeriodo(v.periodo_inicio, v.periodo_fim)})`).join(', ');
-    h += `<div style="padding:16px;background:rgba(232,64,64,0.08);border:1px solid rgba(232,64,64,0.2);border-radius:var(--efl-r-md);margin-bottom:12px;font-size:13px;color:var(--efl-red);">
-      🚨 <strong>${alertas.pagamentoAtrasado.length} pagamento(s) atrasado(s)</strong> — ${nomes}. Prazo de pagamento (dia 10) já passou.
-    </div>`;
-  }
- 
-  if (alertas.prazoVencendo.length > 0) {
-    const nomes = alertas.prazoVencendo.map(v => `<strong>${v.prestadores?.nome || '—'}</strong> (${formatPeriodo(v.periodo_inicio, v.periodo_fim)})`).join(', ');
-    h += `<div style="padding:16px;background:rgba(240,192,64,0.08);border:1px solid rgba(240,192,64,0.2);border-radius:var(--efl-r-md);margin-bottom:12px;font-size:13px;color:var(--efl-yellow);">
-      ⏰ <strong>${alertas.prazoVencendo.length} validação(ões) com prazo vencendo</strong> — ${nomes}. Parceiro(s) precisam aprovar até o dia 20.
-    </div>`;
-  }
- 
-  if (alertas.aprovadas.length > 0) {
-    const nomes = alertas.aprovadas.map(v => `<strong>${v.prestadores?.nome || '—'}</strong> (${formatPeriodo(v.periodo_inicio, v.periodo_fim)})`).join(', ');
-    h += `<div style="padding:16px;background:rgba(32,184,160,0.08);border:1px solid rgba(32,184,160,0.2);border-radius:var(--efl-r-md);margin-bottom:12px;font-size:13px;color:var(--efl-teal);">
-      ✅ <strong>${alertas.aprovadas.length} validação(ões) aprovada(s)</strong> aguardando pagamento — ${nomes}.
-    </div>`;
-  }
- 
+  h += blocoAlerta('✗', 'contestação(ões) pendente(s) — acesse a aba Validações para revisar', alertas.contestadas, 'contestada', 'var(--efl-red)', 'rgba(232,64,64,0.08)', 'rgba(232,64,64,0.2)');
+  h += blocoAlerta('🚨', 'pagamento(s) atrasado(s) — prazo (dia 10) já passou', alertas.pagamentoAtrasado, 'pagamento_atrasado', 'var(--efl-red)', 'rgba(232,64,64,0.08)', 'rgba(232,64,64,0.2)');
+  h += blocoAlerta('⏰', 'validação(ões) com prazo vencendo — parceiro(s) precisam aprovar até o dia 20', alertas.prazoVencendo, 'prazo_vencendo', 'var(--efl-yellow)', 'rgba(240,192,64,0.08)', 'rgba(240,192,64,0.2)');
+  h += blocoAlerta('✅', 'validação(ões) aprovada(s) aguardando pagamento', alertas.aprovadas, 'aprovada_aguardando_pagamento', 'var(--efl-teal)', 'rgba(32,184,160,0.08)', 'rgba(32,184,160,0.2)');
+
   if (!h) h = `<div style="padding:16px;background:rgba(164,197,87,0.08);border:1px solid rgba(164,197,87,0.2);border-radius:var(--efl-r-md);font-size:13px;color:var(--efl-green-400);">✔ Nenhum alerta no momento. Tudo em dia!</div>`;
+  h += `<div style="margin-top:4px;"><button class="btn btn-ghost btn-sm" onclick="toggleBaixados()" id="btn-ver-baixados">Ver alertas baixados</button><div id="lista-baixados" style="display:none;margin-top:10px;"></div></div>`;
   return h;
+}
+
+// ── DAR BAIXA EM ALERTA ────────────────────────────────────────────────────────
+let baixaAlertaAtual = null;
+
+function abrirModalBaixaAlerta(validacaoId, tipo, nomeParceiro, periodo) {
+  baixaAlertaAtual = { validacaoId, tipo };
+  document.getElementById('baixa-alerta-resumo').textContent = `${nomeParceiro} — ${periodo}`;
+  document.getElementById('baixa-alerta-justificativa').value = '';
+  document.getElementById('modal-baixa-alerta').style.display = 'flex';
+}
+
+function fecharModalBaixaAlerta() {
+  document.getElementById('modal-baixa-alerta').style.display = 'none';
+  baixaAlertaAtual = null;
+}
+
+async function confirmarBaixaAlerta() {
+  const justificativa = document.getElementById('baixa-alerta-justificativa').value.trim();
+  if (!justificativa) { alert('Descreva o motivo da baixa.'); return; }
+  if (!baixaAlertaAtual) return;
+  const { data: { user } } = await sb.auth.getUser();
+  const { error } = await sb.from('alertas_baixados').insert({
+    validacao_id: baixaAlertaAtual.validacaoId,
+    tipo: baixaAlertaAtual.tipo,
+    justificativa,
+    baixado_por: user?.id ?? null
+  });
+  if (error) { alert('Erro ao dar baixa: ' + error.message); return; }
+  fecharModalBaixaAlerta();
+  await carregarGestao();
+}
+
+async function toggleBaixados() {
+  const box = document.getElementById('lista-baixados');
+  const btn = document.getElementById('btn-ver-baixados');
+  if (box.style.display === 'block') { box.style.display = 'none'; btn.textContent = 'Ver alertas baixados'; return; }
+
+  const { data } = await sb.from('alertas_baixados')
+    .select('*,validacoes_mensais(periodo_inicio,periodo_fim,prestadores(nome))')
+    .order('baixado_em', { ascending: false });
+
+  const rotuloTipo = { contestada: 'Contestação', pagamento_atrasado: 'Pagamento atrasado', prazo_vencendo: 'Prazo vencendo', aprovada_aguardando_pagamento: 'Aguardando pagamento' };
+
+  box.innerHTML = !data?.length
+    ? `<div style="font-size:12.5px;color:var(--efl-gray-500);padding:8px 0;">Nenhum alerta baixado ainda.</div>`
+    : data.map(b => {
+        const v = b.validacoes_mensais;
+        const periodo = v ? formatPeriodo(v.periodo_inicio, v.periodo_fim) : '—';
+        return `<div style="padding:10px 12px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.07);border-radius:var(--efl-r-sm);margin-bottom:8px;">
+          <div style="display:flex;justify-content:space-between;gap:10px;align-items:baseline;">
+            <span style="font-size:12.5px;color:#fff;"><strong>${v?.prestadores?.nome || '—'}</strong> · ${periodo} · <span class="td-muted">${rotuloTipo[b.tipo] || b.tipo}</span></span>
+            <button class="btn btn-ghost btn-sm" style="flex:none;padding:2px 8px;font-size:11px;" onclick="reabrirAlerta('${b.id}')">Reabrir</button>
+          </div>
+          <div style="font-size:12px;color:var(--efl-gray-400);margin-top:4px;">"${b.justificativa}" — ${new Date(b.baixado_em).toLocaleDateString('pt-BR')}</div>
+        </div>`;
+      }).join('');
+
+  box.style.display = 'block';
+  btn.textContent = 'Ocultar alertas baixados';
+}
+
+async function reabrirAlerta(id) {
+  if (!confirm('Reabrir este alerta? Ele volta a aparecer na lista.')) return;
+  const { error } = await sb.from('alertas_baixados').delete().eq('id', id);
+  if (error) { alert('Erro: ' + error.message); return; }
+  await carregarGestao();
+  await toggleBaixados(); // fecha; reabre ao clicar de novo, já com dado fresco
 }
  
 // ── PAGAMENTO ─────────────────────────────────────────────────────────────────

@@ -8,9 +8,73 @@ let graficoPeriodo = 6; // meses para os gráficos
 async function carregarVendedor(pid, nome) {
   document.getElementById('v-nome').textContent = nome;
   renderSeletorPeriodoVendedor();
+  await carregarPendencias(pid);
   await carregarPrevia(pid);
   await carregarExtratoPeriodo(pid);
   await carregarGraficos(pid);
+}
+
+// ── PENDÊNCIAS DE APROVAÇÃO (qualquer período) ────────────────────────────────
+// O card de validação abaixo é filtrado pelo período selecionado, e o parceiro
+// entra sempre no mês atual. Uma comissão de mês anterior esperando aprovação
+// ficava invisível até ele pensar em navegar até lá — e ninguém navega atrás de
+// algo que não sabe que existe. Este aviso busca as pendentes SEM filtro de
+// período e leva direto ao mês certo.
+async function carregarPendencias(pid) {
+  const alvo = document.getElementById('alerta-pendencias');
+  const { data } = await sb.from('validacoes_mensais')
+    .select('id,periodo_inicio,periodo_fim,status')
+    .eq('prestador_id', pid)
+    .eq('status', 'pendente')
+    .order('periodo_fim', { ascending: false });
+
+  if (!data || !data.length) { alvo.innerHTML = ''; return; }
+
+  const hojeIni = new Date(); hojeIni.setDate(1);
+  const mesAtual = hojeIni.toISOString().slice(0, 7);
+
+  const itens = data.map(v => {
+    const rotulo = formatPeriodo(v.periodo_inicio, v.periodo_fim);
+    // Se a pendência é do mês anterior ao atual, o botão "Mês anterior" resolve;
+    // qualquer outra exige período personalizado.
+    const ehMesAnterior = (() => {
+      const d = new Date(mesAtual + '-01T12:00:00'); d.setMonth(d.getMonth() - 1);
+      return v.periodo_inicio.slice(0, 7) === d.toISOString().slice(0, 7);
+    })();
+    const acao = ehMesAnterior
+      ? `setPeriodoVendedor('mes-anterior')`
+      : `irParaPeriodo('${v.periodo_inicio}','${v.periodo_fim}')`;
+    return `<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 0;">
+      <div style="font-size:13.5px;color:var(--efl-gray-300);">
+        Comissão de <strong style="color:#fff;">${rotulo}</strong> aguardando sua aprovação
+      </div>
+      <button class="btn btn-primary btn-sm" onclick="${acao}">Ver e aprovar →</button>
+    </div>`;
+  }).join('<div style="height:1px;background:rgba(255,255,255,0.06);"></div>');
+
+  alvo.innerHTML = `
+    <div class="section" style="border:1px solid rgba(240,192,64,0.35);margin-bottom:16px;">
+      <div class="section-header" style="background:rgba(240,192,64,0.08);">
+        <div>
+          <div class="section-title">⏳ ${data.length === 1 ? 'Você tem 1 comissão' : `Você tem ${data.length} comissões`} para aprovar</div>
+          <div class="section-sub">Enquanto não aprovar, o pagamento não avança</div>
+        </div>
+        <span class="badge badge-yellow">${data.length}</span>
+      </div>
+      <div style="padding:6px 22px 14px;">${itens}</div>
+    </div>`;
+}
+
+// Leva o extrato a um período específico (usado pelos avisos de pendência).
+// O período personalizado é guiado pelas globais vendedorPeriodoCustom*, no
+// formato YYYY-MM — os selects são só o reflexo delas.
+async function irParaPeriodo(ini, fim) {
+  vendedorPeriodoAtual   = 'custom';
+  vendedorPeriodoCustomIni = ini.slice(0, 7);
+  vendedorPeriodoCustomFim = fim.slice(0, 7);
+  renderSeletorPeriodoVendedor();
+  await carregarExtratoPeriodo(currentPrestadorId);
+  document.getElementById('validacao-card')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
 }
 
 // ── PRÉVIA DO MÊS ─────────────────────────────────────────────────────────────
@@ -124,8 +188,12 @@ function getVendedorDates() {
     ini = new Date(hoje.getFullYear(), hoje.getMonth() - 2, 1);
     fim = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0);
   } else if (vendedorPeriodoAtual === 'custom' && vendedorPeriodoCustomIni && vendedorPeriodoCustomFim) {
-    ini = new Date(vendedorPeriodoCustomIni + '-01');
-    fim = new Date(vendedorPeriodoCustomFim + '-01');
+    // 'T12:00:00' é obrigatório: new Date('2026-06-01') é lido como meia-noite
+    // UTC, mas getMonth()/getFullYear() devolvem valor LOCAL — em UTC-3 isso
+    // vira 31/05 21h e o período inteiro escorrega um mês para trás. As outras
+    // opções usam new Date(ano, mês, dia), que já é local e não sofre disso.
+    ini = new Date(vendedorPeriodoCustomIni + '-01T12:00:00');
+    fim = new Date(vendedorPeriodoCustomFim + '-01T12:00:00');
     fim = new Date(fim.getFullYear(), fim.getMonth() + 1, 0);
   } else {
     ini = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
@@ -160,6 +228,15 @@ async function carregarExtratoPeriodo(pid) {
     document.getElementById('v-fuel').textContent  = 'R$ 0';
     document.getElementById('v-mens').textContent  = 'R$ 0';
     document.getElementById('v-acum').textContent  = acum ? fmtR(acum.comissao_acumulada) : '—';
+    // Sem esta limpeza, o card e os botões continuavam com o estado do período
+    // anterior — a tela dizia "Comissões de julho prontas para validação"
+    // enquanto exibia um período vazio de outro mês.
+    document.getElementById('validacao-card').style.display = 'none';
+    document.getElementById('btn-aprovar').style.display    = 'none';
+    document.getElementById('btn-contestar').style.display  = 'none';
+    document.getElementById('v-validacao-badge').textContent = '—';
+    document.getElementById('v-validacao-badge').className   = 'badge';
+    currentValidacaoId = null;
     return;
   }
  
@@ -383,6 +460,7 @@ async function confirmarAprovacao() {
   }).eq('id', currentValidacaoId);
   if (error) { alert('Erro: ' + error.message); return; }
   fecharModalAprovar();
+  await carregarPendencias(currentPrestadorId);
   await carregarExtratoPeriodo(currentPrestadorId);
 }
  
@@ -397,6 +475,7 @@ async function confirmarContestacao() {
   const { error } = await sb.from('validacoes_mensais').update({ status: 'contestado', observacao: obs }).eq('id', currentValidacaoId);
   if (error) { alert('Erro: ' + error.message); return; }
   fecharModalContestar();
+  await carregarPendencias(currentPrestadorId);
   await carregarExtratoPeriodo(currentPrestadorId);
 }
  

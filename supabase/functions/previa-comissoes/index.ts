@@ -82,14 +82,21 @@ serve(async (req) => {
       return json({ ok: true, linhas: 0, motivo: "METABASE_API_KEY não configurada" });
     }
 
+    // /api/dataset/json é endpoint de EXPORTAÇÃO: espera a consulta como campo
+    // de formulário chamado "query", não como corpo JSON. Em compensação,
+    // devolve os registros já com nomes de coluna (em vez de arrays paralelos
+    // de /api/dataset), que é o formato que atualizar_previa_comissoes espera.
+    const form = new URLSearchParams();
+    form.set("query", JSON.stringify({
+      database: DATABASE_ID,
+      type: "native",
+      native: { query: SQL },
+    }));
+
     const resp = await fetch(`${METABASE_URL}/api/dataset/json`, {
       method: "POST",
-      headers: { "x-api-key": apiKey, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        database: DATABASE_ID,
-        type: "native",
-        native: { query: SQL },
-      }),
+      headers: { "x-api-key": apiKey, "Content-Type": "application/x-www-form-urlencoded" },
+      body: form,
     });
 
     if (!resp.ok) {

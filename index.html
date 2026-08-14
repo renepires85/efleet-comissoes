@@ -208,11 +208,11 @@
         </div>
         <div style="padding:0 22px 14px;">
           <button class="btn btn-ghost btn-sm" id="btn-previa-toggle" onclick="togglePreviaLista()"
-                  aria-expanded="true" aria-controls="previa-lista">
-            <span id="previa-toggle-sinal">−</span>&nbsp; <span id="previa-toggle-txt">Ocultar clientes</span>
+                  aria-expanded="false" aria-controls="previa-lista">
+            <span id="previa-toggle-sinal">+</span>&nbsp; <span id="previa-toggle-txt">Ver clientes</span>
           </button>
         </div>
-        <div id="previa-lista" class="table-wrap"><table>
+        <div id="previa-lista" class="table-wrap" style="display:none;"><table>
           <thead><tr><th>Cliente</th><th>Produto</th><th>Mês</th><th>Base</th><th>Prévia</th><th>Situação</th></tr></thead>
           <tbody id="tbody-previa"></tbody>
         </table></div>

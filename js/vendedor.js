@@ -126,17 +126,26 @@ async function carregarPrevia(pid) {
   }).join('');
 
   secao.style.display = 'block';
+  aplicarEstadoPrevia();
 }
 
 // Recolher a lista de clientes. O cabeçalho, o aviso de que é prévia e as três
 // caixas de valor ficam sempre visíveis — são o resumo; a lista é o detalhe.
-let previaAberta = true;
-function togglePreviaLista() {
-  previaAberta = !previaAberta;
+// Começa FECHADA: quem abre a tela quer o número do mês, não a lista linha a
+// linha; quem quer o detalhe pede.
+let previaAberta = false;
+
+function aplicarEstadoPrevia() {
   document.getElementById('previa-lista').style.display = previaAberta ? '' : 'none';
   document.getElementById('previa-toggle-sinal').textContent = previaAberta ? '−' : '+';
-  document.getElementById('previa-toggle-txt').textContent   = previaAberta ? 'Ocultar clientes' : 'Mostrar clientes';
+  document.getElementById('previa-toggle-txt').textContent   =
+    previaAberta ? 'Ocultar clientes' : `Ver clientes (${previaLinhas.length})`;
   document.getElementById('btn-previa-toggle').setAttribute('aria-expanded', String(previaAberta));
+}
+
+function togglePreviaLista() {
+  previaAberta = !previaAberta;
+  aplicarEstadoPrevia();
 }
 
 // ── FICHA DO CLIENTE ──────────────────────────────────────────────────────────

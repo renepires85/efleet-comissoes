@@ -150,6 +150,8 @@ async function carregarGestao() {
 async function carregarTabelaClientes(pFim) {
   const { data } = await sb.from('vw_extrato_prestador').select('*,prestadores(nome,tipo_parceiro)').eq('periodo_fim', pFim).order('cliente_nome');
   if (!data) return;
+  // Alimenta a ficha do cliente (definida em vendedor.js) — mesma view, mesma ficha.
+  extratoLinhas = data;
   document.getElementById('tbody-clientes').innerHTML = data.map(c => {
     const pct = Math.round(parseFloat(c.fator_ramp) * 100);
     const cs = c.status === 'suspensa'
@@ -157,7 +159,7 @@ async function carregarTabelaClientes(pFim) {
       : `<span class="td-green">${fmtR(c.comissao_bruta)}</span>`;
     const ehIndicador = c.prestadores?.tipo_parceiro === 'indicador';
     return `<tr>
-      <td><strong style="color:#fff;">${c.cliente_nome}</strong></td>
+      <td><button class="link-cliente" onclick="abrirFichaCliente('${c.cliente_cnpj}','extrato')">${c.cliente_nome}</button></td>
       <td class="td-mono td-muted">${c.cliente_cnpj}</td>
       <td>${c.prestadores?.nome || '—'}</td>
       <td><span class="badge ${ehIndicador ? 'badge-purple' : 'badge-blue'}">${ehIndicador ? 'Indicador' : 'Vendedor'}</span></td>

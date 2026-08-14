@@ -143,16 +143,38 @@ function togglePreviaLista() {
 // Um cliente pode ter várias linhas na prévia (uma por produto), então a ficha
 // junta todas: TPV e receita vêm do FUEL, mensalidades somam PASS/FINES/PREMIUM,
 // e o percentual é mostrado por produto, porque cada um tem taxa e rampa própria.
+// Três telas alimentam a ficha, com formatos ligeiramente diferentes:
+//   previa   → previa_comissoes (comissao_prevista, bloqueada, status_cliente)
+//   extrato  → vw_extrato_prestador (comissao_bruta, status)
+//   gestao   → a mesma view, na tabela por cliente
+// A ficha normaliza os dois formatos num só, para não existir em duplicata.
 let previaLinhas = [];
+let extratoLinhas = [];
 
-function abrirFichaCliente(cnpj) {
-  const linhas = previaLinhas.filter(r => r.cliente_cnpj === cnpj);
+function normalizarLinha(r) {
+  return {
+    cliente_cnpj: r.cliente_cnpj, cliente_nome: r.cliente_nome, produto: r.produto,
+    data_ativacao: r.data_ativacao, tpv: r.tpv, base_calculo: r.base_calculo,
+    taxa_comissao: r.taxa_comissao, fator_ramp: r.fator_ramp, mes_curva: r.mes_curva,
+    valor: parseFloat(r.comissao_prevista ?? r.comissao_bruta ?? 0),
+    // Na prévia a pendência vem em `bloqueada`; na comissão fechada, em `status`.
+    pendente: r.bloqueada === true || r.status === 'suspensa',
+    rotuloSituacao: r.status_cliente
+      || (r.status === 'suspensa' ? 'Suspensa'
+        : r.status === 'zerada'   ? 'Zerada' : null),
+    zerada: r.status === 'zerada'
+  };
+}
+
+function abrirFichaCliente(cnpj, origem = 'previa') {
+  const fonte  = origem === 'previa' ? previaLinhas : extratoLinhas;
+  const linhas = fonte.filter(r => r.cliente_cnpj === cnpj).map(normalizarLinha);
   if (!linhas.length) return;
 
   const fuel  = linhas.find(r => r.produto === 'FUEL');
   const mens  = linhas.filter(r => r.produto !== 'FUEL');
-  const total = linhas.reduce((s, r) => s + parseFloat(r.comissao_prevista || 0), 0);
-  const dt    = d => d ? new Date(d + 'T12:00:00').toLocaleDateString('pt-BR') : '—';
+  const total = linhas.reduce((s, r) => s + r.valor, 0);
+  const dt    = d => d ? new Date(String(d).slice(0,10) + 'T12:00:00').toLocaleDateString('pt-BR') : '—';
 
   document.getElementById('fc-nome').textContent = linhas[0].cliente_nome;
   document.getElementById('fc-cnpj').textContent = 'CNPJ ' + fmtCnpj(cnpj);
@@ -168,25 +190,39 @@ function abrirFichaCliente(cnpj) {
   let html = '';
   if (fuel) {
     html += linha('1ª transação', dt(fuel.data_ativacao));
-    html += linha('TPV do mês', fuel.tpv != null ? fmtR(fuel.tpv) : '—', 'volume transacionado pelo cliente');
+    if (fuel.tpv != null) html += linha('TPV do mês', fmtR(fuel.tpv), 'volume transacionado pelo cliente');
     html += linha('Receita FUEL', fmtR(fuel.base_calculo), 'base do cálculo da comissão');
+    // "mês 40 de 12" não quer dizer nada. Passado o 12º mês o cliente saiu da
+    // janela da Curva C, e é isso que precisa ser dito.
+    const m = fuel.mes_curva;
     html += linha('% aplicado no FUEL', pctDe(fuel),
-      fuel.mes_curva != null ? `mês ${fuel.mes_curva} de 12 · rampa ${Math.round(parseFloat(fuel.fator_ramp) * 100)}%` : '');
+      m == null ? ''
+        : m > 12 ? `mês ${m} — fora da janela de 12 meses`
+        : `mês ${m} de 12 · rampa ${Math.round(parseFloat(fuel.fator_ramp) * 100)}%`);
   }
   if (mens.length) {
     const primeira = mens.map(r => r.data_ativacao).filter(Boolean).sort()[0];
     const somaMens = mens.reduce((s, r) => s + parseFloat(r.base_calculo || 0), 0);
-    html += linha('1ª mensalidade', dt(primeira));
+    if (primeira) html += linha('1ª mensalidade', dt(primeira));
     html += linha('Mensalidades no mês', fmtR(somaMens),
       mens.map(r => `${r.produto} ${fmtR(r.base_calculo)} a ${pctDe(r)}`).join(' · '));
   }
-  html += linha('Situação', linhas[0].bloqueada
-    ? `<span class="badge badge-yellow">${linhas[0].status_cliente}</span>`
-    : '<span class="badge badge-green">Regular</span>');
+
+  const l0 = linhas[0];
+  html += linha('Situação', l0.pendente
+    ? `<span class="badge badge-yellow">${l0.rotuloSituacao || 'Pendência'}</span>`
+    : l0.zerada
+      ? '<span class="badge">Zerada</span>'
+      : '<span class="badge badge-green">Regular</span>');
+
+  const ehPrevia = origem === 'previa';
   html += `<div style="display:flex;justify-content:space-between;align-items:baseline;gap:16px;padding:16px 0 4px;">
-      <div style="font-size:13px;color:var(--efl-gray-300);font-weight:600;">Prévia deste cliente</div>
+      <div style="font-size:13px;color:var(--efl-gray-300);font-weight:600;">${ehPrevia ? 'Prévia deste cliente' : 'Comissão deste cliente'}</div>
       <div style="font-size:20px;font-weight:800;color:var(--efl-green-400);">${fmtR(total)}</div>
     </div>`;
+  if (ehPrevia) {
+    html += `<div style="font-size:11.5px;color:var(--efl-gray-500);padding-top:6px;">Valor estimado — muda conforme novas transações entram.</div>`;
+  }
 
   document.getElementById('fc-corpo').innerHTML = html;
   document.getElementById('modal-cliente').style.display = 'flex';
@@ -380,6 +416,7 @@ async function carregarExtratoPeriodo(pid) {
     card.style.display = 'none'; btnA.style.display = 'none'; btnC.style.display = 'none';
   }
 
+  extratoLinhas = ext;
   document.getElementById('tbody-vendedor').innerHTML = ext.map(c => {
     const pct = Math.round(parseFloat(c.fator_ramp) * 100);
     // Bug #1 — badge de suspensão com motivo
@@ -390,7 +427,7 @@ async function carregarExtratoPeriodo(pid) {
   : `<span class="td-green">${fmtR(c.comissao_bruta)}</span>`;
     const enc = c.mes_curva >= 11 ? `<span class="badge badge-yellow" style="margin-left:4px;font-size:10px;cursor:pointer;position:relative;" onclick="toggleTooltip(this)">⚠<span style="display:none;position:absolute;bottom:calc(100% + 6px);left:50%;transform:translateX(-50%);background:#1a2535;color:#fff;font-size:11px;font-weight:400;padding:8px 12px;border-radius:6px;white-space:nowrap;z-index:999;box-shadow:0 4px 12px rgba(0,0,0,0.4);border:1px solid rgba(255,255,255,0.1);">⏳ Cliente encerrando em breve.<br>Janela de comissão termina no mês 12.</span></span>` : '';
     return `<tr>
-      <td><strong style="color:#fff;">${c.cliente_nome}</strong></td>
+      <td><button class="link-cliente" onclick="abrirFichaCliente('${c.cliente_cnpj}','extrato')">${c.cliente_nome}</button></td>
       <td><span class="badge ${c.produto === 'FUEL' ? 'badge-blue' : 'badge-green'}">${c.produto}</span></td>
       <td class="td-mono">${c.mes_curva}/12 ${enc}</td>
       <td><div class="ramp-bar"><div class="ramp-track"><div class="ramp-fill ${pct < 100 ? 'partial' : ''}" style="width:${pct}%"></div></div><div class="ramp-label">${pct}%</div></div></td>

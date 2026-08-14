@@ -53,13 +53,13 @@ async function carregarPendencias(pid) {
   }).join('<div style="height:1px;background:rgba(255,255,255,0.06);"></div>');
 
   alvo.innerHTML = `
-    <div class="section" style="border:1px solid rgba(240,192,64,0.35);margin-bottom:16px;">
-      <div class="section-header" style="background:rgba(240,192,64,0.08);">
+    <div class="section alerta-aprovacao">
+      <div class="section-header">
         <div>
-          <div class="section-title">⏳ ${data.length === 1 ? 'Você tem 1 comissão' : `Você tem ${data.length} comissões`} para aprovar</div>
+          <div class="section-title">⚠️ ${data.length === 1 ? 'Você tem 1 comissão' : `Você tem ${data.length} comissões`} para aprovar</div>
           <div class="section-sub">Enquanto não aprovar, o pagamento não avança</div>
         </div>
-        <span class="badge badge-yellow">${data.length}</span>
+        <span class="badge badge-red">${data.length}</span>
       </div>
       <div style="padding:6px 22px 14px;">${itens}</div>
     </div>`;

@@ -221,3 +221,24 @@ tbody tr:hover td{background:rgba(255,255,255,0.02);}
   .vendedor-header{flex-direction:column;align-items:flex-start;}
   .vendedor-total{text-align:left;}
 }
+
+/* Aviso de comissões aguardando aprovação do parceiro.
+   Vermelho porque é bloqueio de pagamento, não informação: enquanto ele não
+   aprovar, o dinheiro dele não anda. O amarelo da prévia, logo abaixo, é o
+   contraste — aquilo é "pode mudar", isto é "depende de você". A pulsação é
+   sutil e só na borda, para chamar sem virar alarme. */
+.alerta-aprovacao{
+  border:1px solid rgba(232,64,64,0.45);
+  margin-bottom:16px;
+  animation:alerta-pulso 2.6s ease-in-out infinite;
+}
+.alerta-aprovacao .section-header{background:rgba(232,64,64,0.10);}
+.alerta-aprovacao .section-title{color:var(--efl-red);}
+@keyframes alerta-pulso{
+  0%,100%{border-color:rgba(232,64,64,0.45);box-shadow:0 0 0 0 rgba(232,64,64,0);}
+  50%    {border-color:rgba(232,64,64,0.85);box-shadow:0 0 0 3px rgba(232,64,64,0.10);}
+}
+/* Respeita quem pediu menos movimento no sistema operacional. */
+@media (prefers-reduced-motion:reduce){
+  .alerta-aprovacao{animation:none;border-color:rgba(232,64,64,0.85);}
+}

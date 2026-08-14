@@ -108,10 +108,13 @@ async function carregarPrevia(pid) {
     qtdBloq === 0 ? 'nenhum cliente com pendência'
                   : `${qtdBloq} linha(s) — não entra no validado`;
 
+  // Guarda as linhas para a ficha do cliente montar sem ir ao banco de novo.
+  previaLinhas = data;
+
   document.getElementById('tbody-previa').innerHTML = data.map(r => {
     const pct = r.fator_ramp != null ? Math.round(parseFloat(r.fator_ramp) * 100) : null;
     return `<tr${r.bloqueada ? ' style="opacity:.65;"' : ''}>
-      <td><strong style="color:#fff;">${r.cliente_nome}</strong></td>
+      <td><button class="link-cliente" onclick="abrirFichaCliente('${r.cliente_cnpj}')">${r.cliente_nome}</button></td>
       <td><span class="badge ${r.produto === 'FUEL' ? 'badge-blue' : 'badge-green'}">${r.produto}</span></td>
       <td class="td-mono">${r.mes_curva != null ? `${r.mes_curva}/12${pct != null ? ` · ${pct}%` : ''}` : '—'}</td>
       <td class="td-mono">${fmtR(r.base_calculo)}</td>
@@ -123,6 +126,83 @@ async function carregarPrevia(pid) {
   }).join('');
 
   secao.style.display = 'block';
+}
+
+// Recolher a lista de clientes. O cabeçalho, o aviso de que é prévia e as três
+// caixas de valor ficam sempre visíveis — são o resumo; a lista é o detalhe.
+let previaAberta = true;
+function togglePreviaLista() {
+  previaAberta = !previaAberta;
+  document.getElementById('previa-lista').style.display = previaAberta ? '' : 'none';
+  document.getElementById('previa-toggle-sinal').textContent = previaAberta ? '−' : '+';
+  document.getElementById('previa-toggle-txt').textContent   = previaAberta ? 'Ocultar clientes' : 'Mostrar clientes';
+  document.getElementById('btn-previa-toggle').setAttribute('aria-expanded', String(previaAberta));
+}
+
+// ── FICHA DO CLIENTE ──────────────────────────────────────────────────────────
+// Um cliente pode ter várias linhas na prévia (uma por produto), então a ficha
+// junta todas: TPV e receita vêm do FUEL, mensalidades somam PASS/FINES/PREMIUM,
+// e o percentual é mostrado por produto, porque cada um tem taxa e rampa própria.
+let previaLinhas = [];
+
+function abrirFichaCliente(cnpj) {
+  const linhas = previaLinhas.filter(r => r.cliente_cnpj === cnpj);
+  if (!linhas.length) return;
+
+  const fuel  = linhas.find(r => r.produto === 'FUEL');
+  const mens  = linhas.filter(r => r.produto !== 'FUEL');
+  const total = linhas.reduce((s, r) => s + parseFloat(r.comissao_prevista || 0), 0);
+  const dt    = d => d ? new Date(d + 'T12:00:00').toLocaleDateString('pt-BR') : '—';
+
+  document.getElementById('fc-nome').textContent = linhas[0].cliente_nome;
+  document.getElementById('fc-cnpj').textContent = 'CNPJ ' + fmtCnpj(cnpj);
+
+  const linha = (rotulo, valor, dica) => `
+    <div style="display:flex;justify-content:space-between;align-items:baseline;gap:16px;padding:11px 0;border-bottom:1px solid rgba(255,255,255,0.06);">
+      <div style="font-size:13px;color:var(--efl-gray-400);">${rotulo}${dica ? `<div style="font-size:11.5px;color:var(--efl-gray-500);margin-top:2px;">${dica}</div>` : ''}</div>
+      <div style="font-size:14.5px;color:#fff;font-weight:600;text-align:right;white-space:nowrap;">${valor}</div>
+    </div>`;
+
+  const pctDe = r => `${(parseFloat(r.taxa_comissao) * (r.fator_ramp != null ? parseFloat(r.fator_ramp) : 1) * 100).toFixed(2).replace('.', ',')}%`;
+
+  let html = '';
+  if (fuel) {
+    html += linha('1ª transação', dt(fuel.data_ativacao));
+    html += linha('TPV do mês', fuel.tpv != null ? fmtR(fuel.tpv) : '—', 'volume transacionado pelo cliente');
+    html += linha('Receita FUEL', fmtR(fuel.base_calculo), 'base do cálculo da comissão');
+    html += linha('% aplicado no FUEL', pctDe(fuel),
+      fuel.mes_curva != null ? `mês ${fuel.mes_curva} de 12 · rampa ${Math.round(parseFloat(fuel.fator_ramp) * 100)}%` : '');
+  }
+  if (mens.length) {
+    const primeira = mens.map(r => r.data_ativacao).filter(Boolean).sort()[0];
+    const somaMens = mens.reduce((s, r) => s + parseFloat(r.base_calculo || 0), 0);
+    html += linha('1ª mensalidade', dt(primeira));
+    html += linha('Mensalidades no mês', fmtR(somaMens),
+      mens.map(r => `${r.produto} ${fmtR(r.base_calculo)} a ${pctDe(r)}`).join(' · '));
+  }
+  html += linha('Situação', linhas[0].bloqueada
+    ? `<span class="badge badge-yellow">${linhas[0].status_cliente}</span>`
+    : '<span class="badge badge-green">Regular</span>');
+  html += `<div style="display:flex;justify-content:space-between;align-items:baseline;gap:16px;padding:16px 0 4px;">
+      <div style="font-size:13px;color:var(--efl-gray-300);font-weight:600;">Prévia deste cliente</div>
+      <div style="font-size:20px;font-weight:800;color:var(--efl-green-400);">${fmtR(total)}</div>
+    </div>`;
+
+  document.getElementById('fc-corpo').innerHTML = html;
+  document.getElementById('modal-cliente').style.display = 'flex';
+}
+
+function fecharFichaCliente() {
+  document.getElementById('modal-cliente').style.display = 'none';
+}
+
+// CNPJ (14) ou CPF (11); qualquer outro tamanho volta como veio — a origem tem
+// casos como o CNPJ com zero extra do cadastro recriado após churn.
+function fmtCnpj(v) {
+  const d = String(v || '').replace(/\D/g, '');
+  if (d.length === 14) return d.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, '$1.$2.$3/$4-$5');
+  if (d.length === 11) return d.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4');
+  return v;
 }
  
 // ── SELETOR DE PERÍODO ────────────────────────────────────────────────────────

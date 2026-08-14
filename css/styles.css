@@ -242,3 +242,14 @@ tbody tr:hover td{background:rgba(255,255,255,0.02);}
 @media (prefers-reduced-motion:reduce){
   .alerta-aprovacao{animation:none;border-color:rgba(232,64,64,0.85);}
 }
+
+/* Nome de cliente clicável na prévia. É <button> e não <a> porque não navega —
+   abre a ficha ali mesmo; assim o teclado e o leitor de tela acertam o papel. */
+.link-cliente{
+  background:none; border:none; padding:0; cursor:pointer;
+  font-family:var(--efl-font-body); font-size:inherit; font-weight:700;
+  color:#fff; text-align:left; border-bottom:1px dotted rgba(255,255,255,0.3);
+  transition:color .15s, border-color .15s;
+}
+.link-cliente:hover{color:var(--efl-green-400); border-bottom-color:var(--efl-green-400);}
+.link-cliente:focus-visible{outline:2px solid var(--efl-green-500); outline-offset:3px; border-radius:2px;}

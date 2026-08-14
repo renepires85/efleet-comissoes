@@ -33,7 +33,10 @@ const SQL = `
 WITH periodo AS (
   SELECT DATE_TRUNC('MONTH', CURRENT_DATE) AS ini
 ), receitas_fuel AS (
-  SELECT t.cliente_id, SUM(t.receita) AS receita_fuel
+  -- tpv = volume transacionado pelo cliente; receita = o que fica com a eFleet.
+  -- A comissão sai da receita, mas o TPV é o número que o parceiro reconhece
+  -- como "o tamanho do cliente" e aparece na ficha.
+  SELECT t.cliente_id, SUM(t.valor) AS tpv_fuel, SUM(t.receita) AS receita_fuel
   FROM prod_analytics.transacoes t, periodo p
   WHERE DATE_TRUNC('MONTH', t.transacao_date) = p.ini
   GROUP BY 1
@@ -48,12 +51,23 @@ WITH periodo AS (
   FROM prod_analytics.receitas r, periodo p
   WHERE r.tipo_receita='mensalidade' AND DATE_TRUNC('MONTH', r.receita_date) = p.ini
   GROUP BY 1
+), ativacao_mens AS (
+  -- Data da 1ª mensalidade por fonte, sem limite de período (histórico).
+  SELECT cliente_id,
+    MIN(CASE WHEN fonte_receita='pass'    THEN receita_date END) AS ativ_pass,
+    MIN(CASE WHEN fonte_receita='fines'   THEN receita_date END) AS ativ_fines,
+    MIN(CASE WHEN fonte_receita='premium' THEN receita_date END) AS ativ_premium
+  FROM prod_analytics.receitas WHERE tipo_receita='mensalidade' GROUP BY 1
 )
 SELECT
   COALESCE(c.representante,'') AS vendedor_nome,
   c.cnpj_cpf AS cliente_cnpj,
   c.nome AS cliente_nome,
   CAST(af.ativacao_fuel AS VARCHAR) AS ativacao_fuel,
+  CAST(am.ativ_pass AS VARCHAR) AS ativacao_pass,
+  CAST(am.ativ_fines AS VARCHAR) AS ativacao_fines,
+  CAST(am.ativ_premium AS VARCHAR) AS ativacao_premium,
+  f.tpv_fuel,
   f.receita_fuel, m.receita_pass, m.receita_fines, m.receita_premium,
   CASE c.situacao
     WHEN 'ATIVO' THEN 'Ativo'
@@ -66,6 +80,7 @@ CROSS JOIN periodo p
 LEFT JOIN receitas_fuel f ON f.cliente_id = c.cliente_id
 LEFT JOIN mens m ON m.cliente_id = c.cliente_id
 LEFT JOIN ativacao_fuel af ON af.cliente_id = c.cliente_id
+LEFT JOIN ativacao_mens am ON am.cliente_id = c.cliente_id
 WHERE (f.receita_fuel IS NOT NULL OR m.receita_pass IS NOT NULL
        OR m.receita_fines IS NOT NULL OR m.receita_premium IS NOT NULL)
   AND COALESCE(c.representante,'') <> ''

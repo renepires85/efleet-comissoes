@@ -206,10 +206,26 @@
           <div class="kpi-card kpi-green"><div class="kpi-label">Valor validado</div><div class="kpi-value val-green" id="previa-validado">—</div><div class="kpi-sub">de clientes em situação regular</div></div>
           <div class="kpi-card kpi-yellow"><div class="kpi-label">Valor bloqueado</div><div class="kpi-value val-yellow" id="previa-bloqueado">—</div><div class="kpi-sub" id="previa-bloqueado-sub">—</div></div>
         </div>
-        <div class="table-wrap"><table>
+        <div style="padding:0 22px 14px;">
+          <button class="btn btn-ghost btn-sm" id="btn-previa-toggle" onclick="togglePreviaLista()"
+                  aria-expanded="true" aria-controls="previa-lista">
+            <span id="previa-toggle-sinal">−</span>&nbsp; <span id="previa-toggle-txt">Ocultar clientes</span>
+          </button>
+        </div>
+        <div id="previa-lista" class="table-wrap"><table>
           <thead><tr><th>Cliente</th><th>Produto</th><th>Mês</th><th>Base</th><th>Prévia</th><th>Situação</th></tr></thead>
           <tbody id="tbody-previa"></tbody>
         </table></div>
+      </div>
+
+      <!-- Ficha do cliente, aberta ao clicar no nome na prévia -->
+      <div class="modal-overlay" id="modal-cliente" onclick="if(event.target===this)fecharFichaCliente()">
+        <div class="modal-box" style="width:520px;" role="dialog" aria-modal="true" aria-labelledby="fc-nome">
+          <button class="modal-close" onclick="fecharFichaCliente()" aria-label="Fechar">✕</button>
+          <div class="modal-title" id="fc-nome">—</div>
+          <div class="modal-sub" id="fc-cnpj">—</div>
+          <div id="fc-corpo"></div>
+        </div>
       </div>
       <div class="kpi-grid kpi-3">
         <div class="kpi-card kpi-green"><div class="kpi-label">Comissão FUEL</div><div class="kpi-value val-green" id="v-fuel">—</div><div class="kpi-sub">20% da receita eFleet</div></div>

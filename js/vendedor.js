@@ -8,8 +8,57 @@ let graficoPeriodo = 6; // meses para os gráficos
 async function carregarVendedor(pid, nome) {
   document.getElementById('v-nome').textContent = nome;
   renderSeletorPeriodoVendedor();
+  await carregarPrevia(pid);
   await carregarExtratoPeriodo(pid);
   await carregarGraficos(pid);
+}
+
+// ── PRÉVIA DO MÊS ─────────────────────────────────────────────────────────────
+// Alimentada diariamente pela Edge Function previa-comissoes (Metabase →
+// Postgres). É estimativa do mês em andamento: muda com novas transações e
+// não inclui, no validado, cliente bloqueado/inadimplente/cancelado.
+async function carregarPrevia(pid) {
+  const secao = document.getElementById('secao-previa');
+  const { data } = await sb.from('previa_comissoes')
+    .select('*')
+    .eq('prestador_id', pid)
+    .order('comissao_prevista', { ascending: false });
+
+  if (!data || !data.length) { secao.style.display = 'none'; return; }
+
+  const total     = data.reduce((s, r) => s + parseFloat(r.comissao_prevista || 0), 0);
+  const bloqueado = data.filter(r => r.bloqueada).reduce((s, r) => s + parseFloat(r.comissao_prevista || 0), 0);
+  const validado  = total - bloqueado;
+  const qtdBloq   = data.filter(r => r.bloqueada).length;
+
+  const ini = new Date(data[0].periodo_inicio + 'T12:00:00');
+  document.getElementById('previa-mes').textContent =
+    ini.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+  document.getElementById('previa-atualizado').textContent =
+    'Atualizado em ' + new Date(data[0].atualizado_em).toLocaleString('pt-BR');
+
+  document.getElementById('previa-total').textContent     = fmtR(total);
+  document.getElementById('previa-validado').textContent  = fmtR(validado);
+  document.getElementById('previa-bloqueado').textContent = fmtR(bloqueado);
+  document.getElementById('previa-bloqueado-sub').textContent =
+    qtdBloq === 0 ? 'nenhum cliente com pendência'
+                  : `${qtdBloq} linha(s) — não entra no validado`;
+
+  document.getElementById('tbody-previa').innerHTML = data.map(r => {
+    const pct = r.fator_ramp != null ? Math.round(parseFloat(r.fator_ramp) * 100) : null;
+    return `<tr${r.bloqueada ? ' style="opacity:.65;"' : ''}>
+      <td><strong style="color:#fff;">${r.cliente_nome}</strong></td>
+      <td><span class="badge ${r.produto === 'FUEL' ? 'badge-blue' : 'badge-green'}">${r.produto}</span></td>
+      <td class="td-mono">${r.mes_curva != null ? `${r.mes_curva}/12${pct != null ? ` · ${pct}%` : ''}` : '—'}</td>
+      <td class="td-mono">${fmtR(r.base_calculo)}</td>
+      <td class="${r.bloqueada ? 'td-yellow' : 'td-green'}">${fmtR(r.comissao_prevista)}</td>
+      <td>${r.bloqueada
+        ? `<span class="badge badge-yellow">${r.status_cliente || 'Pendência'}</span>`
+        : `<span class="badge badge-green">Regular</span>`}</td>
+    </tr>`;
+  }).join('');
+
+  secao.style.display = 'block';
 }
  
 // ── SELETOR DE PERÍODO ────────────────────────────────────────────────────────

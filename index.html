@@ -186,6 +186,27 @@
         <div style="font-family:var(--efl-font-head);font-size:14px;font-weight:700;margin-bottom:6px;color:#fff;" id="vc-titulo">—</div>
         <div style="font-size:13px;color:var(--efl-gray-400);" id="vc-sub">—</div>
       </div>
+      <div class="section" id="secao-previa" style="display:none;border:1px solid rgba(240,192,64,0.3);">
+        <div class="section-header" style="background:rgba(240,192,64,0.06);">
+          <div>
+            <div class="section-title">⏳ Prévia · <span id="previa-mes">—</span></div>
+            <div class="section-sub" id="previa-atualizado">—</div>
+          </div>
+          <span class="badge badge-yellow">Valor estimado</span>
+        </div>
+        <div style="padding:16px 22px;background:rgba(240,192,64,0.04);border-bottom:1px solid var(--efl-line, rgba(255,255,255,0.06));font-size:12.5px;color:var(--efl-gray-400);line-height:1.6;">
+          Isto é uma <strong style="color:var(--efl-yellow);">prévia do mês em andamento</strong>, não o valor final. Ele muda conforme novas transações entram, e comissão de cliente bloqueado, inadimplente ou cancelado não é paga enquanto a situação não for regularizada.
+        </div>
+        <div class="kpi-grid kpi-3" style="padding:16px 22px;">
+          <div class="kpi-card kpi-blue"><div class="kpi-label">Total calculado</div><div class="kpi-value val-blue" id="previa-total">—</div><div class="kpi-sub">tudo que o mês gerou até agora</div></div>
+          <div class="kpi-card kpi-green"><div class="kpi-label">Valor validado</div><div class="kpi-value val-green" id="previa-validado">—</div><div class="kpi-sub">de clientes em situação regular</div></div>
+          <div class="kpi-card kpi-yellow"><div class="kpi-label">Valor bloqueado</div><div class="kpi-value val-yellow" id="previa-bloqueado">—</div><div class="kpi-sub" id="previa-bloqueado-sub">—</div></div>
+        </div>
+        <div class="table-wrap"><table>
+          <thead><tr><th>Cliente</th><th>Produto</th><th>Mês</th><th>Base</th><th>Prévia</th><th>Situação</th></tr></thead>
+          <tbody id="tbody-previa"></tbody>
+        </table></div>
+      </div>
       <div class="kpi-grid kpi-3">
         <div class="kpi-card kpi-green"><div class="kpi-label">Comissão FUEL</div><div class="kpi-value val-green" id="v-fuel">—</div><div class="kpi-sub">20% da receita eFleet</div></div>
         <div class="kpi-card kpi-blue"><div class="kpi-label">Mensalidades</div><div class="kpi-value val-blue" id="v-mens">—</div><div class="kpi-sub">15% das mensalidades</div></div>

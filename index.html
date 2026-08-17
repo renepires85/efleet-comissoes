@@ -68,6 +68,7 @@
     <div class="topbar-right">
       <span class="topbar-badge" id="topbar-badge"></span>
       <span class="topbar-user" id="topbar-user"></span>
+      <button class="logout-btn" onclick="abrirModalSenha()" title="Alterar minha senha">Senha</button>
       <button class="logout-btn" id="logout-btn">Sair</button>
     </div>
   </div>
@@ -543,6 +544,35 @@
      modal. Já esteve aninhada dentro de #modal-pagamento e nunca aparecia: o
      próprio elemento computava display:flex, mas o modal-pai estava com
      display:none, então a subárvore inteira ficava fora de renderização. -->
+<!-- Alterar senha. Disponível para todos os perfis pela barra superior. -->
+<div class="modal-overlay" id="modal-senha" onclick="if(event.target===this)fecharModalSenha()">
+  <div class="modal-box" style="width:460px;" role="dialog" aria-modal="true" aria-labelledby="ms-titulo">
+    <button class="modal-close" onclick="fecharModalSenha()" aria-label="Fechar">✕</button>
+    <div class="modal-title" id="ms-titulo">Alterar senha</div>
+    <div class="modal-sub">Escolha uma senha que só você conheça.</div>
+
+    <div class="form-field">
+      <label class="input-label" for="ms-atual">Senha atual</label>
+      <input type="password" class="input" id="ms-atual" autocomplete="current-password">
+    </div>
+    <div class="form-field">
+      <label class="input-label" for="ms-nova">Nova senha</label>
+      <input type="password" class="input" id="ms-nova" autocomplete="new-password" placeholder="Mínimo 8 caracteres">
+    </div>
+    <div class="form-field">
+      <label class="input-label" for="ms-nova2">Repita a nova senha</label>
+      <input type="password" class="input" id="ms-nova2" autocomplete="new-password">
+    </div>
+
+    <div id="ms-aviso" style="display:none;font-size:13px;margin:4px 0 14px;"></div>
+
+    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:20px;">
+      <button class="btn btn-ghost btn-md" onclick="fecharModalSenha()">Cancelar</button>
+      <button class="btn btn-primary btn-md" id="ms-salvar" onclick="salvarNovaSenha()">Alterar senha</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal-overlay" id="modal-cliente" onclick="if(event.target===this)fecharFichaCliente()">
     <div class="modal-box" style="width:520px;" role="dialog" aria-modal="true" aria-labelledby="fc-nome">
       <button class="modal-close" onclick="fecharFichaCliente()" aria-label="Fechar">✕</button>

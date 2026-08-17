@@ -63,3 +63,64 @@ async function setupApp(usuario) {
     document.getElementById('view-vendedor').classList.add('active');
   }
 }
+
+// ── ALTERAR SENHA ─────────────────────────────────────────────────────────────
+// Até aqui o sistema não tinha nenhuma forma de trocar a senha: só o login e o
+// formulário de solicitação de acesso pediam senha. Quem recebia uma senha
+// temporária ficava com ela para sempre, até um reset manual pelo banco.
+//
+// A senha ATUAL é exigida de propósito, embora o Supabase não precise dela para
+// updateUser: sem isso, qualquer pessoa que encontrasse uma sessão aberta —
+// máquina destravada, navegador compartilhado — trocaria a senha e tomaria a
+// conta. Confirmamos reautenticando com signInWithPassword antes de trocar.
+
+function abrirModalSenha() {
+  ['ms-atual','ms-nova','ms-nova2'].forEach(id => document.getElementById(id).value = '');
+  avisoSenha('');
+  document.getElementById('modal-senha').style.display = 'flex';
+  document.getElementById('ms-atual').focus();
+}
+
+function fecharModalSenha() {
+  document.getElementById('modal-senha').style.display = 'none';
+}
+
+function avisoSenha(msg, tipo = 'erro') {
+  const el = document.getElementById('ms-aviso');
+  if (!msg) { el.style.display = 'none'; return; }
+  el.textContent = msg;
+  el.style.color = tipo === 'ok' ? 'var(--efl-green-400)' : 'var(--efl-red)';
+  el.style.display = 'block';
+}
+
+async function salvarNovaSenha() {
+  const atual = document.getElementById('ms-atual').value;
+  const nova  = document.getElementById('ms-nova').value;
+  const nova2 = document.getElementById('ms-nova2').value;
+  const btn   = document.getElementById('ms-salvar');
+
+  if (!atual)                 return avisoSenha('Informe sua senha atual.');
+  if (nova.length < 8)        return avisoSenha('A nova senha precisa ter ao menos 8 caracteres.');
+  if (nova !== nova2)         return avisoSenha('As duas senhas novas não são iguais.');
+  if (nova === atual)         return avisoSenha('A nova senha precisa ser diferente da atual.');
+
+  btn.disabled = true; btn.textContent = 'Alterando...';
+  try {
+    const { data: { user } } = await sb.auth.getUser();
+    if (!user?.email) { avisoSenha('Sessão expirada. Entre novamente.'); return; }
+
+    // Confirma que quem está na frente da tela sabe a senha atual.
+    const { error: erroLogin } = await sb.auth.signInWithPassword({ email: user.email, password: atual });
+    if (erroLogin) { avisoSenha('Senha atual incorreta.'); return; }
+
+    const { error } = await sb.auth.updateUser({ password: nova });
+    if (error) { avisoSenha('Não foi possível alterar: ' + error.message); return; }
+
+    avisoSenha('Senha alterada. Use a nova no próximo acesso.', 'ok');
+    setTimeout(fecharModalSenha, 2000);
+  } catch (e) {
+    avisoSenha('Erro inesperado: ' + (e?.message || e));
+  } finally {
+    btn.disabled = false; btn.textContent = 'Alterar senha';
+  }
+}

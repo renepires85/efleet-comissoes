@@ -8,6 +8,7 @@ let graficoPeriodo = 6; // meses para os gráficos
 async function carregarVendedor(pid, nome) {
   document.getElementById('v-nome').textContent = nome;
   renderSeletorPeriodoVendedor();
+  await ajustarTaxasNaTela(pid);
   await carregarPendencias(pid);
   await carregarPrevia(pid);
   await carregarExtratoPeriodo(pid);
@@ -666,4 +667,37 @@ function toggleTooltip(el) {
   const visible = tip.style.display === 'block';
   document.querySelectorAll('.badge-yellow span').forEach(t => t.style.display = 'none');
   tip.style.display = visible ? 'none' : 'block';
+}
+
+// Os percentuais nos cartões vinham fixos no HTML (20% FUEL / 15% mensalidades),
+// que são as taxas do VENDEDOR. O indicador tem percentual próprio, definido no
+// contrato dele e igual para todos os produtos elegíveis — o Bruno, por exemplo,
+// tem 15% no FUEL, não 20%. Mostrar a taxa errada num extrato de comissão é
+// pior que não mostrar nada.
+async function ajustarTaxasNaTela(pid) {
+  const fuel = document.getElementById('v-fuel-taxa');
+  const mens = document.getElementById('v-mens-taxa');
+  if (!fuel || !mens) return;
+
+  const { data: p } = await sb.from('prestadores').select('tipo_parceiro').eq('id', pid).maybeSingle();
+  if (p?.tipo_parceiro !== 'indicador') {
+    fuel.textContent = '20% da receita eFleet';
+    mens.textContent = '15% das mensalidades';
+    return;
+  }
+
+  const { data: c } = await sb.from('contratos_indicadores')
+    .select('percentual_comissao,produtos_elegiveis,status')
+    .eq('prestador_id', pid).eq('status', 'ativo')
+    .order('data_inicio', { ascending: false }).limit(1).maybeSingle();
+
+  if (!c) {
+    fuel.textContent = 'contrato de indicação pendente';
+    mens.textContent = 'contrato de indicação pendente';
+    return;
+  }
+  const pct = `${String(c.percentual_comissao).replace('.', ',')}%`;
+  const tem = prod => (c.produtos_elegiveis || []).includes(prod);
+  fuel.textContent = tem('FUEL') ? `${pct} da receita eFleet` : 'FUEL fora do contrato';
+  mens.textContent = ['PASS','FINES','PREMIUM'].some(tem) ? `${pct} das mensalidades` : 'mensalidades fora do contrato';
 }

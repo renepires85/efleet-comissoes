@@ -291,7 +291,13 @@ async function enviarConvite() {
     const result = await res.json();
     if (result.error) throw new Error(result.error);
     st.className = 'status-box status-ok'; st.style.display = 'block';
-    st.textContent = `✓ Convite enviado para ${email}`;
+    // Se o e-mail não saiu, o acesso existe do mesmo jeito — mostramos a senha
+    // para a gestão repassar por outro canal, em vez de deixar um cadastro
+    // criado que ninguém consegue usar.
+    st.innerHTML = result.email_enviado
+      ? `✓ Convite enviado para ${email}`
+      : `✓ Acesso criado, mas o e-mail não saiu.<br>Senha provisória: <strong style="font-family:ui-monospace,monospace;">${result.senha_provisoria}</strong><br><span style="font-size:12px;">Repasse por um canal privado.</span>`;
+    await carregarPrestadores?.();
   } catch (e) {
     st.className = 'status-box status-err'; st.style.display = 'block';
     st.textContent = `✗ Erro: ${e.message}`;

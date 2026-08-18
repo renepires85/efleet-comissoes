@@ -144,6 +144,73 @@ serve(async (req) => {
     // ─── Gestão: relatório semanal de pendências (fechamento + aprovações) ───
     // Disparado pelo pg_cron (ver migration 20260813_relatorio_semanal_gestao.sql),
     // toda segunda 08h — mas pode ser chamado manualmente sem parâmetros.
+    // ── LEMBRETE AOS PARCEIROS ────────────────────────────────────────────────
+    // O relatório semanal avisa a GESTÃO; este avisa o PARCEIRO. Sem ele, a
+    // pendência só é vista por quem entra no sistema — e o Eduardo ficou com
+    // junho parado desde 16/07, quase um mês, porque ninguém foi atrás dele.
+    //
+    // Só parceiro ATIVO recebe: o inativo não consegue entrar para aprovar, e
+    // cobrar ação de quem não tem acesso é ruído. Validação sem valor a pagar
+    // já não existe mais — a trava criada hoje impede que nasça.
+    if (action === "lembrete_parceiros") {
+      const supabase = createClient(
+        Deno.env.get("SUPABASE_URL")!,
+        Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+      );
+
+      const { data: pendentes, error } = await supabase
+        .from("validacoes_mensais")
+        .select("id, periodo_inicio, periodo_fim, criado_em, prestadores!inner(id, nome, email, ativo)")
+        .eq("status", "pendente")
+        .eq("prestadores.ativo", true);
+
+      if (error) return json({ ok: false, error: error.message }, 400);
+      if (!pendentes?.length) return json({ ok: true, enviados: 0, motivo: "nenhuma pendência" });
+
+      const resendKey = Deno.env.get("RESEND_API_KEY");
+      if (!resendKey) return json({ ok: false, error: "RESEND_API_KEY não configurada" }, 400);
+
+      // Agrupa por parceiro: quem tem três meses parados recebe UM e-mail, não três.
+      const porParceiro = new Map<string, { nome: string; email: string; periodos: string[]; desde: string }>();
+      for (const v of pendentes as any[]) {
+        const p = v.prestadores;
+        if (!p?.email) continue;
+        const mes = new Date(v.periodo_inicio + "T12:00:00")
+          .toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
+        const atual = porParceiro.get(p.id) ?? { nome: p.nome, email: p.email, periodos: [], desde: v.criado_em };
+        atual.periodos.push(mes);
+        if (v.criado_em < atual.desde) atual.desde = v.criado_em;
+        porParceiro.set(p.id, atual);
+      }
+
+      let enviados = 0, semEmail = 0;
+      for (const p of porParceiro.values()) {
+        const dias = Math.floor((Date.now() - new Date(p.desde).getTime()) / 86400000);
+        const lista = p.periodos.map(m => `<li style="margin:4px 0;">${m}</li>`).join("");
+        const html = `
+          <div style="font-family:system-ui,-apple-system,sans-serif;max-width:520px;color:#1a2535;">
+            <h2 style="color:#245091;margin:0 0 4px;">Você tem comissão para aprovar</h2>
+            <p style="color:#606878;margin:0 0 18px;">Olá, ${p.nome}.</p>
+            <p>${p.periodos.length === 1 ? "Há uma comissão aguardando" : `Há ${p.periodos.length} comissões aguardando`} sua aprovação:</p>
+            <ul style="padding-left:20px;">${lista}</ul>
+            <p><strong>Enquanto você não aprovar, o pagamento não avança.</strong></p>
+            ${dias >= 15 ? `<p style="color:#c9302c;">A mais antiga está parada há ${dias} dias.</p>` : ""}
+            <p style="margin-top:22px;">
+              <a href="${APP_URL}" style="background:#A4C557;color:#0B1929;text-decoration:none;padding:11px 20px;border-radius:8px;font-weight:700;display:inline-block;">Abrir o sistema</a>
+            </p>
+            <p style="color:#606878;font-size:13px;margin-top:24px;">eFleet ARGOS · Comissões</p>
+          </div>`;
+        // enviarResend lança em erro; um parceiro com e-mail inválido não pode
+        // impedir que os outros recebam.
+        try {
+          await enviarResend(resendKey, [p.email], "Você tem comissão para aprovar", html);
+          enviados++;
+        } catch (_) { semEmail++; }
+      }
+
+      return json({ ok: true, enviados, falhas: semEmail, parceiros: porParceiro.size });
+    }
+
     if (action === "relatorio_semanal") {
       const supabase = createClient(
         Deno.env.get("SUPABASE_URL")!,

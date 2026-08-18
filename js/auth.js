@@ -18,7 +18,16 @@ async function doLogin() {
 
   const { data: usuario } = await sb.from('usuarios').select('*').eq('id', data.user.id).single();
   if (!usuario) { err.textContent = 'Usuário sem perfil cadastrado.'; err.style.display = 'block'; await sb.auth.signOut(); return; }
-  if (usuario.perfil !== perfil) { err.textContent = 'Perfil de acesso incorreto.'; err.style.display = 'block'; await sb.auth.signOut(); return; }
+  // "Parceiro Comercial" no seletor cobre os DOIS tipos de parceiro: vendedor e
+  // indicador. A distinção existe para o cálculo da comissão — o indicador ganha
+  // percentual cheio sem Curva C —, não para quem está entrando: ele só sabe que
+  // é parceiro da eFleet. Sem isso, todo indicador era barrado com "Perfil de
+  // acesso incorreto", porque o seletor nunca teve a opção 'indicador'.
+  const perfisAceitos = perfil === 'vendedor' ? ['vendedor', 'indicador'] : [perfil];
+  if (!perfisAceitos.includes(usuario.perfil)) {
+    err.textContent = 'Perfil de acesso incorreto.'; err.style.display = 'block';
+    await sb.auth.signOut(); return;
+  }
 
   currentUser = data.user;
   currentPerfil = usuario.perfil;

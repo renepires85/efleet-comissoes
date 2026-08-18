@@ -1,13 +1,10 @@
--- Lembra o parceiro, toda quarta às 09h (BRT) = 12h UTC, de que há comissão
--- esperando aprovação dele.
+-- Lembra o parceiro, TODO DIA às 09h (BRT) = 12h UTC, de que há comissão
+-- esperando aprovação dele — e para de lembrar assim que ele aprova.
 --
--- Quarta, e não segunda: o relatório da gestão sai segunda 08h, e empilhar os
--- dois no mesmo dia faz o time receber "há pendências" e o parceiro receber
--- "aprove" sem que ninguém tenha tido tempo de agir no meio.
---
--- Semanal, não diário: a pendência dura semanas por natureza — o parceiro
--- confere o extrato quando tem tempo. Um lembrete por dia vira ruído e a
--- pessoa passa a ignorar todos, inclusive o que importa.
+-- Diário e não semanal: não é aviso institucional, é o dinheiro da própria
+-- pessoa parado, e ela é quem destrava. O lembrete só existe enquanto há
+-- pendência: no dia seguinte à aprovação, a consulta não retorna nada e
+-- ninguém recebe nada. Quem não quer receber tem como fazer parar.
 --
 -- O problema concreto que isso resolve: o Eduardo ficou com a comissão de
 -- junho parada desde 16/07 — quase um mês — porque a única forma de saber era
@@ -18,7 +15,7 @@ where exists (select 1 from cron.job where jobname = 'lembrete-parceiros');
 
 select cron.schedule(
   'lembrete-parceiros',
-  '0 12 * * 3',
+  '0 12 * * *',
   $$
   select net.http_post(
     url     := 'https://zakxroemofwolqqkfyaz.supabase.co/functions/v1/clever-handler',

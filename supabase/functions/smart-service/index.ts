@@ -52,17 +52,42 @@ Deno.serve(async (req: Request) => {
 
     if (errUsuario) throw new Error("Erro usuarios: " + errUsuario.message);
 
-    // 3. Se vendedor, inserir em prestadores
-    if (perfil === "vendedor") {
-      const { error: errPrestador } = await sb.from("prestadores").insert({
-        nome,
-        email,
-        usuario_id: userId,
-        tipo: "PF",
-        ativo: true,
-      });
+    // 3. Ligar o login ao parceiro.
+    //
+    // Na maioria dos casos o parceiro JÁ EXISTE em `prestadores`: alguém da
+    // gestão cadastrou nome, documento, contrato e percentual antes, e o
+    // convite é só o último passo. Por isso procuramos primeiro pelo e-mail e
+    // preenchemos o usuario_id do cadastro existente — criar um segundo
+    // registro deixaria o contrato e os vínculos de clientes órfãos no
+    // primeiro, e o parceiro entraria no sistema sem enxergar nada.
+    //
+    // Antes daqui só se inseria quando perfil === "vendedor", o que deixava
+    // todo indicador convidado pela tela sem usuario_id — logava e não via
+    // comissão nenhuma.
+    if (perfil === "vendedor" || perfil === "indicador") {
+      const { data: existente } = await sb
+        .from("prestadores")
+        .select("id, usuario_id")
+        .eq("email", email)
+        .maybeSingle();
 
-      if (errPrestador) throw new Error("Erro prestadores: " + errPrestador.message);
+      if (existente) {
+        const { error: errLink } = await sb
+          .from("prestadores")
+          .update({ usuario_id: userId })
+          .eq("id", existente.id);
+        if (errLink) throw new Error("Erro ao vincular prestador: " + errLink.message);
+      } else {
+        const { error: errPrestador } = await sb.from("prestadores").insert({
+          nome,
+          email,
+          usuario_id: userId,
+          tipo: "PF",
+          tipo_parceiro: perfil,
+          ativo: true,
+        });
+        if (errPrestador) throw new Error("Erro prestadores: " + errPrestador.message);
+      }
     }
 
     // 4. Enviar o convite. O acesso já existe neste ponto — se o e-mail

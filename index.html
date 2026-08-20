@@ -408,7 +408,7 @@
     <div class="section-divider">Dados pessoais</div>
     <div class="form-grid">
       <div><label class="input-label">Nome</label><input class="input" id="f-nome" placeholder="Nome completo"></div>
-      <div><label class="input-label">Parceiro</label><select class="input" id="f-tipo-parceiro" onchange="toggleContratoIndicador()"><option value="vendedor">Vendedor</option><option value="indicador">Indicador</option></select></div>
+      <div><label class="input-label" for="f-tipo-parceiro">Tipo de comissão</label><select class="input" id="f-tipo-parceiro" onchange="toggleContratoIndicador()" title="Vendedor: Curva C, com rampa. Indicador: percentual cheio, sem rampa. Não confundir com o perfil de acesso do login."><option value="vendedor">Vendedor — Curva C</option><option value="indicador">Indicador — percentual cheio</option></select></div>
       <div><label class="input-label">Tipo</label><select class="input" id="f-tipo"><option value="PJ">PJ</option><option value="PF">PF</option></select></div>
       <div><label class="input-label" id="f-doc-label">CNPJ</label><input class="input" id="f-doc" placeholder="00.000.000/0001-00"></div>
       <div><label class="input-label">E-mail</label><input class="input" id="f-email" type="email"></div>

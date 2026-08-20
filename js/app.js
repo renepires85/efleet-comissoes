@@ -98,7 +98,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     const { data: usuario } = await sb.from('usuarios').select('*').eq('id', session.user.id).single();
     if (usuario) {
       currentPerfil = usuario.perfil;
-      await setupApp(usuario);
+      // Mesma trava do login: sessão restaurada de quem ainda está com a senha
+      // provisória também para na tela de troca. Sem isso, bastava recarregar a
+      // página para entrar sem trocar nada.
+      if (usuario.senha_provisoria) exigirTrocaDeSenha(usuario);
+      else await setupApp(usuario);
     }
   }
 });

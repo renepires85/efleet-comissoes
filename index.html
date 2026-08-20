@@ -569,11 +569,11 @@
 <!-- Alterar senha. Disponível para todos os perfis pela barra superior. -->
 <div class="modal-overlay" id="modal-senha" onclick="if(event.target===this)fecharModalSenha()">
   <div class="modal-box" style="width:460px;" role="dialog" aria-modal="true" aria-labelledby="ms-titulo">
-    <button class="modal-close" onclick="fecharModalSenha()" aria-label="Fechar">✕</button>
+    <button class="modal-close" id="ms-fechar" onclick="fecharModalSenha()" aria-label="Fechar">✕</button>
     <div class="modal-title" id="ms-titulo">Alterar senha</div>
-    <div class="modal-sub">Escolha uma senha que só você conheça.</div>
+    <div class="modal-sub" id="ms-sub">Escolha uma senha que só você conheça.</div>
 
-    <div class="form-field">
+    <div class="form-field" id="ms-campo-atual">
       <label class="input-label" for="ms-atual">Senha atual</label>
       <input type="password" class="input" id="ms-atual" autocomplete="current-password">
     </div>
@@ -589,7 +589,7 @@
     <div id="ms-aviso" style="display:none;font-size:13px;margin:4px 0 14px;"></div>
 
     <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:20px;">
-      <button class="btn btn-ghost btn-md" onclick="fecharModalSenha()">Cancelar</button>
+      <button class="btn btn-ghost btn-md" id="ms-cancelar" onclick="fecharModalSenha()">Cancelar</button>
       <button class="btn btn-primary btn-md" id="ms-salvar" onclick="salvarNovaSenha()">Alterar senha</button>
     </div>
   </div>

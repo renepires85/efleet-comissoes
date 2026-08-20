@@ -31,6 +31,12 @@ async function doLogin() {
 
   currentUser = data.user;
   currentPerfil = usuario.perfil;
+
+  // Senha provisória não abre o sistema. A tela de login continua no lugar,
+  // com o modal por cima e sem saída: é o único ponto em que dá para garantir
+  // que a senha que nós geramos, e que trafegou por e-mail, seja substituída.
+  if (usuario.senha_provisoria) { exigirTrocaDeSenha(usuario); return; }
+
   await setupApp(usuario);
 }
 
@@ -83,14 +89,38 @@ async function setupApp(usuario) {
 // máquina destravada, navegador compartilhado — trocaria a senha e tomaria a
 // conta. Confirmamos reautenticando com signInWithPassword antes de trocar.
 
+// Quando true, o modal está no modo obrigatório: sem ✕, sem Cancelar, sem
+// fechar clicando fora, e sem o campo "senha atual" — a pessoa acabou de provar
+// que sabe a senha provisória ao entrar, e pedir de novo é só atrito.
+let trocaObrigatoria = false;
+let usuarioAguardandoTroca = null;
+
+function exigirTrocaDeSenha(usuario) {
+  trocaObrigatoria = true;
+  usuarioAguardandoTroca = usuario;
+  abrirModalSenha();
+}
+
 function abrirModalSenha() {
   ['ms-atual','ms-nova','ms-nova2'].forEach(id => document.getElementById(id).value = '');
   avisoSenha('');
+
+  document.getElementById('ms-campo-atual').style.display = trocaObrigatoria ? 'none' : 'block';
+  document.getElementById('ms-fechar').style.display     = trocaObrigatoria ? 'none' : 'block';
+  document.getElementById('ms-cancelar').style.display   = trocaObrigatoria ? 'none' : 'inline-flex';
+  document.getElementById('ms-titulo').textContent = trocaObrigatoria
+    ? 'Crie a sua senha' : 'Alterar senha';
+  document.getElementById('ms-sub').textContent = trocaObrigatoria
+    ? 'Você entrou com a senha provisória que a eFleet enviou. Escolha agora uma senha que só você conheça — ela substitui a provisória.'
+    : 'Escolha uma senha que só você conheça.';
+  document.getElementById('ms-salvar').textContent = trocaObrigatoria ? 'Criar senha' : 'Alterar senha';
+
   document.getElementById('modal-senha').style.display = 'flex';
-  document.getElementById('ms-atual').focus();
+  document.getElementById(trocaObrigatoria ? 'ms-nova' : 'ms-atual').focus();
 }
 
 function fecharModalSenha() {
+  if (trocaObrigatoria) return;   // sem saída até a senha ser trocada
   document.getElementById('modal-senha').style.display = 'none';
 }
 
@@ -107,29 +137,56 @@ async function salvarNovaSenha() {
   const nova  = document.getElementById('ms-nova').value;
   const nova2 = document.getElementById('ms-nova2').value;
   const btn   = document.getElementById('ms-salvar');
+  const rotulo = trocaObrigatoria ? 'Criar senha' : 'Alterar senha';
 
-  if (!atual)                 return avisoSenha('Informe sua senha atual.');
-  if (nova.length < 8)        return avisoSenha('A nova senha precisa ter ao menos 8 caracteres.');
-  if (nova !== nova2)         return avisoSenha('As duas senhas novas não são iguais.');
-  if (nova === atual)         return avisoSenha('A nova senha precisa ser diferente da atual.');
+  if (!trocaObrigatoria && !atual) return avisoSenha('Informe sua senha atual.');
+  if (nova.length < 8)             return avisoSenha('A senha precisa ter ao menos 8 caracteres.');
+  if (nova !== nova2)              return avisoSenha('As duas senhas não são iguais.');
+  if (!trocaObrigatoria && nova === atual) return avisoSenha('A nova senha precisa ser diferente da atual.');
 
-  btn.disabled = true; btn.textContent = 'Alterando...';
+  btn.disabled = true; btn.textContent = 'Salvando...';
   try {
     const { data: { user } } = await sb.auth.getUser();
     if (!user?.email) { avisoSenha('Sessão expirada. Entre novamente.'); return; }
 
-    // Confirma que quem está na frente da tela sabe a senha atual.
-    const { error: erroLogin } = await sb.auth.signInWithPassword({ email: user.email, password: atual });
-    if (erroLogin) { avisoSenha('Senha atual incorreta.'); return; }
+    if (trocaObrigatoria) {
+      // Sem campo de senha atual para comparar, tentamos entrar com a senha
+      // escolhida: se funcionar, ela É a provisória, e manter a provisória é
+      // exatamente o que esta tela existe para impedir.
+      const { error: igual } = await sb.auth.signInWithPassword({ email: user.email, password: nova });
+      if (!igual) { avisoSenha('Essa é a senha provisória. Escolha uma diferente.'); return; }
+    } else {
+      // Confirma que quem está na frente da tela sabe a senha atual.
+      const { error: erroLogin } = await sb.auth.signInWithPassword({ email: user.email, password: atual });
+      if (erroLogin) { avisoSenha('Senha atual incorreta.'); return; }
+    }
 
     const { error } = await sb.auth.updateUser({ password: nova });
-    if (error) { avisoSenha('Não foi possível alterar: ' + error.message); return; }
+    if (error) { avisoSenha('Não foi possível salvar: ' + error.message); return; }
+
+    // Só desliga a flag depois que a senha nova já está valendo: se a ordem
+    // fosse inversa e o updateUser falhasse, a pessoa ficaria com a provisória
+    // e sem ninguém para cobrar a troca.
+    //
+    // Por RPC e não por update direto: `usuarios` tem RLS e nenhuma policy de
+    // UPDATE, então um update daqui afetaria zero linhas SEM ERRO — a senha
+    // mudava, a flag ficava, e o próximo login caía na mesma tela para sempre.
+    const { error: erroFlag } = await sb.rpc('concluir_troca_de_senha');
+    if (erroFlag) { avisoSenha('Senha salva, mas houve um erro no cadastro: ' + erroFlag.message); return; }
+
+    if (trocaObrigatoria) {
+      avisoSenha('Senha criada. Entrando...', 'ok');
+      const usuario = { ...usuarioAguardandoTroca, senha_provisoria: false };
+      trocaObrigatoria = false; usuarioAguardandoTroca = null;
+      setTimeout(async () => { fecharModalSenha(); await setupApp(usuario); }, 1200);
+      return;
+    }
 
     avisoSenha('Senha alterada. Use a nova no próximo acesso.', 'ok');
     setTimeout(fecharModalSenha, 2000);
   } catch (e) {
     avisoSenha('Erro inesperado: ' + (e?.message || e));
   } finally {
-    btn.disabled = false; btn.textContent = 'Alterar senha';
+    btn.disabled = false; btn.textContent = rotulo;
   }
 }

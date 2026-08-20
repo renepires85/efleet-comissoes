@@ -210,7 +210,7 @@ async function enviarAcessoPrestador(prestadorId: string) {
   // sabe qual tela abrir depois do login.
   const { error: errPerfil } = await sb
     .from("usuarios")
-    .upsert({ id: userId, nome: p.nome, perfil: papel }, { onConflict: "id" });
+    .upsert({ id: userId, nome: p.nome, perfil: papel, senha_provisoria: true }, { onConflict: "id" });
   if (errPerfil) throw new Error("Erro no perfil: " + errPerfil.message);
 
   if (p.usuario_id !== userId) {
@@ -241,7 +241,11 @@ async function convidar(nome: string, email: string, perfil: string, senhaRecebi
   if (error) throw error;
   const userId = data.user.id;
 
-  const { error: errUsuario } = await sb.from("usuarios").insert({ id: userId, nome, perfil });
+  // senha_provisoria trava o login na tela de troca até a pessoa escolher a
+  // dela. Toda senha que sai daqui é temporária por definição — ela trafega por
+  // e-mail e nós a conhecemos.
+  const { error: errUsuario } = await sb.from("usuarios")
+    .insert({ id: userId, nome, perfil, senha_provisoria: true });
   if (errUsuario) throw new Error("Erro usuarios: " + errUsuario.message);
 
   // Na maioria dos casos o parceiro JÁ EXISTE em `prestadores`: alguém da

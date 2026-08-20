@@ -42,6 +42,22 @@ h1,h2,h3,h4,h5,h6{font-family:var(--efl-font-head);font-weight:700;}
 .input:focus{border-color:var(--efl-navy-400);box-shadow:0 0 0 3px rgba(36,80,145,0.2);}
 select.input{appearance:none;cursor:pointer;}
 
+/* Lista do <select> legível.
+   O menu que abre não é desenhado pela página: quem desenha é o sistema
+   operacional. As <option> herdavam o color:#fff do .input, mas o fundo do
+   menu vinha do tema CLARO do sistema — texto branco sobre branco. Só o item
+   sob o cursor sobrevivia, porque o realce pinta o próprio fundo.
+   Era global: valia para todo select do sistema, não só o de Banco.
+
+   color-scheme:dark é a correção de origem — avisa o navegador que a página é
+   escura, e ele passa a desenhar os controles nativos (menu do select, barra
+   de rolagem, calendário do input date) no tema escuro. As regras de option
+   abaixo são reforço para os navegadores que aceitam estilizá-las; o Safari
+   no macOS ignora e depende do color-scheme. */
+:root{color-scheme:dark;}
+select.input option,
+select.input optgroup{background-color:var(--efl-navy-800);color:var(--efl-gray-100);}
+
 /* ── BOTÕES ──────────────────────────────────────────────────────────────────── */
 .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;font-family:var(--efl-font-head);font-weight:700;border:none;border-radius:var(--efl-r-md);cursor:pointer;transition:all .2s;white-space:nowrap;}
 .btn:disabled{opacity:.6;cursor:not-allowed;}

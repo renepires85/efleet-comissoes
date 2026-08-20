@@ -6,6 +6,8 @@
 //                              login e, para vendedor/indicador, liga ao
 //                              cadastro de prestador correspondente.
 //   { recuperar: email }     → "Esqueci minha senha" da tela de login.
+//   { usuario_id }           → "Enviar acesso" de um usuário de gestão, que
+//                              não tem linha em `prestadores`.
 //   { prestador_id }         → botão "Enviar acesso" da aba Cadastros. Parte
 //                              de um prestador que JÁ existe e resolve o que
 //                              faltar: cria o login se não houver, religa se
@@ -317,6 +319,45 @@ async function enviarAcessoPrestador(prestadorId: string) {
   };
 }
 
+// ── ENVIAR ACESSO A UM USUÁRIO DE GESTÃO ──────────────────────────────────────
+// Gestão não tem cadastro em `prestadores` — ela só existe em `usuarios`, e o
+// e-mail mora no Auth. Por isso o caminho é separado do enviarAcessoPrestador:
+// aqui o login sempre existe (é o que define a linha), então nunca há criação,
+// só redefinição de senha.
+async function enviarAcessoUsuario(usuarioId: string) {
+  const sb = criarCliente();
+
+  const { data: u, error } = await sb
+    .from("usuarios").select("id, nome, perfil, ativo").eq("id", usuarioId).single();
+  if (error || !u) throw new Error("Usuário não encontrado.");
+
+  const { data: conta, error: errConta } = await sb.auth.admin.getUserById(usuarioId);
+  if (errConta || !conta?.user?.email) throw new Error("Este usuário não tem login no Auth.");
+  const email = conta.user.email;
+
+  const senha = gerarSenha();
+  const { error: errUpd } = await sb.auth.admin.updateUserById(usuarioId, {
+    password: senha, email_confirm: true,
+  });
+  if (errUpd) throw new Error("Erro ao redefinir a senha: " + errUpd.message);
+
+  const { error: errFlag } = await sb
+    .from("usuarios").update({ senha_provisoria: true }).eq("id", usuarioId);
+  if (errFlag) throw new Error("Erro ao marcar senha provisória: " + errFlag.message);
+
+  let emailEnviado = false;
+  try {
+    emailEnviado = await enviarEmailAcesso(u.nome as string, email, senha, u.perfil as string, false);
+  } catch (_) { /* senha já trocada; o que falhou foi o aviso */ }
+
+  return {
+    ok: true, nome: u.nome, email, novo: false, user_id: usuarioId,
+    email_enviado: emailEnviado,
+    senha_provisoria: emailEnviado ? undefined : senha,
+    aviso: u.ativo ? undefined : `${u.nome} está com o acesso INATIVO — a senha nova só vale depois de reativar.`,
+  };
+}
+
 // ── CONVITE AVULSO ────────────────────────────────────────────────────────────
 async function convidar(nome: string, email: string, perfil: string, senhaRecebida?: string) {
   const sb = criarCliente();
@@ -374,6 +415,10 @@ Deno.serve(async (req: Request) => {
 
     if (corpo.recuperar) {
       return json(await recuperarSenha(corpo.recuperar));
+    }
+
+    if (corpo.usuario_id) {
+      return json(await enviarAcessoUsuario(corpo.usuario_id));
     }
 
     if (corpo.prestador_id) {

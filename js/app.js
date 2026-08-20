@@ -98,6 +98,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   if (session) {
     currentUser = session.user;
     const { data: usuario } = await sb.from('usuarios').select('*').eq('id', session.user.id).single();
+    // Mesma regra do login: sessão de acesso inativado não sobrevive a um
+    // recarregamento. Sem isso, quem já estivesse dentro continuaria dentro.
+    if (usuario && usuario.ativo === false) { await sb.auth.signOut(); return; }
     if (usuario) {
       currentPerfil = usuario.perfil;
       // Mesma trava do login: sessão restaurada de quem ainda está com a senha

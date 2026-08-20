@@ -417,3 +417,100 @@ async function enviarConvite() {
   }
   btn.textContent = 'Enviar convite'; btn.disabled = false;
 }
+
+// ── ACESSOS DE GESTÃO ─────────────────────────────────────────────────────────
+// Gestão não tem linha em `prestadores` — só em `usuarios` —, então não
+// aparecia em tela nenhuma. Dava para criar um acesso de gestão pelo botão
+// Convidar e nunca mais vê-lo: o perfil de maior privilégio do sistema era o
+// único sem lista, sem auditoria e sem forma de revogar.
+//
+// Tabela separada, e não misturada com a de parceiros, porque as colunas não se
+// encontram: PJ/PF, documento, banco e PIX não significam nada para gestão, e a
+// linha viria cheia de travessões.
+let gestaoCache = [];
+
+async function carregarAcessosGestao() {
+  const tbody = document.getElementById('tbody-gestao');
+  if (!tbody) return;
+
+  // Por RPC porque e-mail e último acesso moram em auth.users, fora do alcance
+  // do cliente. A função confere o perfil por dentro.
+  const { data, error } = await sb.rpc('acessos_gestao');
+  if (error) {
+    tbody.innerHTML = `<tr><td colspan="6" class="loading">Não foi possível carregar: ${error.message}</td></tr>`;
+    return;
+  }
+
+  gestaoCache = data || [];
+  if (!gestaoCache.length) {
+    tbody.innerHTML = `<tr><td colspan="6" class="loading">Nenhum acesso de gestão cadastrado.</td></tr>`;
+    return;
+  }
+
+  const info = document.getElementById('ge-info');
+  const inativos = gestaoCache.filter(u => !u.ativo).length;
+  if (info) {
+    info.textContent = `${gestaoCache.length} pessoa${gestaoCache.length === 1 ? '' : 's'} com acesso total`
+      + (inativos ? ` · ${inativos} inativo${inativos === 1 ? '' : 's'}` : '')
+      + ' — vê a comissão de todos os parceiros, roda o cálculo e aprova pagamento.';
+  }
+
+  tbody.innerHTML = gestaoCache.map(u => `<tr>
+    <td><strong style="color:#fff;font-family:var(--efl-font-head);">${u.nome}</strong></td>
+    <td class="td-muted">${u.email || '—'}</td>
+    <td>${u.senha_provisoria
+        ? '<span class="badge badge-yellow">Provisória</span>'
+        : '<span class="badge badge-green">Definida</span>'}</td>
+    <td class="td-muted">${u.ultimo_acesso ? new Date(u.ultimo_acesso).toLocaleDateString('pt-BR') : 'nunca entrou'}</td>
+    <td><span class="badge ${u.ativo ? 'badge-green' : 'badge-yellow'}">${u.ativo ? 'Ativo' : 'Inativo'}</span></td>
+    <td style="white-space:nowrap;">
+      <button class="btn btn-ghost btn-sm" id="btn-gacesso-${u.id}"
+              title="Gera uma nova senha e envia por e-mail"
+              onclick="enviarAcessoGestao('${u.id}', ${JSON.stringify(u.nome)})">↻ Reenviar acesso</button>
+      <button class="btn btn-ghost btn-sm"
+              onclick="alternarStatusGestao('${u.id}', ${!u.ativo}, ${JSON.stringify(u.nome)})">${u.ativo ? 'Inativar' : 'Ativar'}</button>
+    </td>
+  </tr>`).join('');
+}
+
+async function enviarAcessoGestao(id, nome) {
+  if (!confirm(
+    `${nome} já tem acesso.\n\nReenviar vai GERAR UMA NOVA SENHA e invalidar a atual — ` +
+    `se a pessoa já estiver usando o sistema, a senha dela para de funcionar.\n\nContinuar?`
+  )) return;
+
+  const btn = document.getElementById(`btn-gacesso-${id}`);
+  const rotulo = btn.innerHTML;
+  btn.innerHTML = 'Enviando...'; btn.disabled = true;
+  try {
+    const { data: { session } } = await sb.auth.getSession();
+    const res = await fetch(SMART_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}`, 'apikey': SUPABASE_ANON },
+      body: JSON.stringify({ usuario_id: id })
+    });
+    const r = await res.json();
+    if (r.error) throw new Error(r.error);
+
+    alert(r.email_enviado
+      ? `✓ Nova senha enviada para ${r.email}` + (r.aviso ? `\n\n⚠ ${r.aviso}` : '')
+      : `✓ Senha redefinida, mas o e-mail NÃO saiu.\n\nE-mail: ${r.email}\nSenha provisória: ${r.senha_provisoria}\n\n` +
+        `Repasse por um canal privado — esta senha não fica guardada em lugar nenhum.`);
+    await carregarAcessosGestao();
+  } catch (e) {
+    alert(`✗ Não foi possível enviar o acesso.\n\n${e.message}`);
+    btn.innerHTML = rotulo; btn.disabled = false;
+  }
+}
+
+async function alternarStatusGestao(id, ativar, nome) {
+  if (!ativar && !confirm(
+    `Inativar o acesso de ${nome}?\n\n` +
+    `A pessoa deixa de conseguir entrar imediatamente, inclusive se já estiver ` +
+    `com o sistema aberto. O histórico dela é preservado e dá para reativar depois.`
+  )) return;
+
+  const { error } = await sb.rpc('definir_status_usuario', { p_usuario_id: id, p_ativo: ativar });
+  if (error) { alert(`✗ ${error.message}`); return; }
+  await carregarAcessosGestao();
+}

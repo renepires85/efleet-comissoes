@@ -29,6 +29,16 @@ async function doLogin() {
     await sb.auth.signOut(); return;
   }
 
+  // `ativo` nunca era conferido: inativar alguém não impedia nada, e a gestão
+  // acreditava ter revogado um acesso que continuava funcionando. A senha
+  // segue válida no Auth de propósito — inativar é reversível, e apagar o
+  // usuário levaria junto o histórico de comissão dele.
+  if (usuario.ativo === false) {
+    err.textContent = 'Este acesso está inativo. Fale com a eFleet.';
+    err.style.display = 'block';
+    await sb.auth.signOut(); return;
+  }
+
   currentUser = data.user;
   currentPerfil = usuario.perfil;
 

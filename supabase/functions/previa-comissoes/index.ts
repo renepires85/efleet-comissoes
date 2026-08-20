@@ -61,6 +61,7 @@ WITH periodo AS (
 )
 SELECT
   COALESCE(c.representante,'') AS vendedor_nome,
+  COALESCE(c.indicador,'') AS indicador_nome,
   c.cnpj_cpf AS cliente_cnpj,
   c.nome AS cliente_nome,
   CAST(af.ativacao_fuel AS VARCHAR) AS ativacao_fuel,

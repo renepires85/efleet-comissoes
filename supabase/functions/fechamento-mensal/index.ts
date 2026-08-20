@@ -75,7 +75,8 @@ ativ_mens AS (
     MIN(CASE WHEN fonte_receita='premium' THEN receita_date END) AS ativ_premium
   FROM prod_analytics.receitas WHERE tipo_receita='mensalidade' GROUP BY 1)
 SELECT
-  c.representante AS vendedor_nome, c.cnpj_cpf AS cliente_cnpj, c.nome AS cliente_nome,
+  c.representante AS vendedor_nome, COALESCE(c.indicador,'') AS indicador_nome,
+  c.cnpj_cpf AS cliente_cnpj, c.nome AS cliente_nome,
   CAST(af.d AS VARCHAR) AS ativacao_fuel,
   CAST(am.ativ_pass AS VARCHAR) AS ativacao_pass,
   CAST(am.ativ_fines AS VARCHAR) AS ativacao_fines,

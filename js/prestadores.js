@@ -18,9 +18,60 @@ async function carregarPrestadores() {
     <td class="td-muted">${p.banco || '—'}</td>
     <td class="td-muted">${p.pix || '—'}</td>
     <td><span class="badge ${p.ativo ? 'badge-green' : 'badge-yellow'}">${p.ativo ? 'Ativo' : 'Inativo'}</span></td>
-    <td><button class="btn btn-ghost btn-sm" onclick="abrirModalPrestador('${p.id}')">Editar</button></td>
+    <td style="white-space:nowrap;">
+      <button class="btn btn-ghost btn-sm" onclick="abrirModalPrestador('${p.id}')">Editar</button>
+      <button class="btn btn-ghost btn-sm" id="btn-acesso-${p.id}"
+              title="${p.usuario_id ? 'Gera uma nova senha e reenvia por e-mail' : 'Cria o login e envia os dados por e-mail'}"
+              onclick="enviarAcesso('${p.id}', ${!!p.usuario_id})">
+        ${p.usuario_id ? '↻ Reenviar acesso' : '✉ Enviar acesso'}
+      </button>
+    </td>
   </tr>`;
   }).join('');
+}
+
+// ── ENVIAR / REENVIAR ACESSO ──────────────────────────────────────────────────
+// A senha provisória é gerada no servidor e some daqui: nunca passa pelo
+// console nem pelo histórico da aba. Só volta para a tela se o e-mail falhar —
+// aí a gestão repassa por outro canal, em vez de ficar com um acesso criado que
+// ninguém consegue usar.
+async function enviarAcesso(id, jaTemAcesso) {
+  // Reenviar invalida a senha atual. Quem já usa o sistema perde o acesso que
+  // tinha, então isso não pode acontecer por clique errado ao lado de "Editar".
+  if (jaTemAcesso && !confirm(
+    'Este parceiro já tem acesso.\n\n' +
+    'Reenviar vai GERAR UMA NOVA SENHA e invalidar a atual — se ele já estiver ' +
+    'usando o sistema, a senha dele para de funcionar.\n\nContinuar?'
+  )) return;
+
+  const btn = document.getElementById(`btn-acesso-${id}`);
+  const rotulo = btn.innerHTML;
+  btn.innerHTML = 'Enviando...'; btn.disabled = true;
+
+  try {
+    const { data: { session } } = await sb.auth.getSession();
+    const res = await fetch(SMART_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}`, 'apikey': SUPABASE_ANON },
+      body: JSON.stringify({ prestador_id: id })
+    });
+    const r = await res.json();
+    if (r.error) throw new Error(r.error);
+
+    if (r.email_enviado) {
+      alert(`✓ Acesso enviado para ${r.email}\n\n${r.nome} recebeu ${r.novo ? 'o login e a senha provisória' : 'a nova senha'}.` +
+            (r.aviso ? `\n\n⚠ ${r.aviso}` : ''));
+    } else {
+      alert(`✓ Acesso ${r.novo ? 'criado' : 'atualizado'}, mas o e-mail NÃO saiu.\n\n` +
+            `E-mail: ${r.email}\nSenha provisória: ${r.senha_provisoria}\n\n` +
+            `Repasse por um canal privado — esta senha não fica guardada em lugar nenhum.` +
+            (r.aviso ? `\n\n⚠ ${r.aviso}` : ''));
+    }
+    await carregarPrestadores();
+  } catch (e) {
+    alert(`✗ Não foi possível enviar o acesso.\n\n${e.message}`);
+    btn.innerHTML = rotulo; btn.disabled = false;
+  }
 }
 
 async function toggleContratoIndicador() {

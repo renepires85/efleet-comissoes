@@ -174,31 +174,36 @@ async function enviarEmailAcesso(nome: string, email: string, senha: string, pap
 // que não chega é o mesmo que não existir. O domínio da eFleet já está
 // verificado no Resend e é o mesmo remetente das outras mensagens do sistema.
 
-function corpoRecuperacao(nome: string, link: string) {
+function corpoRecuperacao(nome: string, codigo: string) {
   return `
     <tr><td style="padding:28px 28px 0;">
       <p style="margin:0 0 4px;color:#0b1929;font-size:20px;font-weight:bold;">Olá, ${PRIMEIRO_NOME(nome)}</p>
       <p style="margin:0 0 20px;color:#374151;font-size:14px;line-height:1.55;">
         Recebemos um pedido para redefinir a sua senha do ARGOS · Comissões.
-        Clique no botão abaixo para escolher uma nova.
+        Digite o código abaixo na tela do sistema para escolher uma nova.
       </p>
     </td></tr>
 
-    <tr><td align="center" style="padding:4px 28px 8px;">
-      <a href="${link}" style="display:inline-block;background:#245091;color:#ffffff;text-decoration:none;font-weight:bold;font-size:14px;padding:13px 30px;border-radius:8px;">Redefinir minha senha →</a>
+    <tr><td style="padding:0 28px;">
+      <table cellpadding="0" cellspacing="0" width="100%" style="background:#f5f7fa;border:1px solid #e6e9ef;border-radius:10px;">
+        <tr><td align="center" style="padding:20px 18px;">
+          <p style="margin:0 0 6px;color:#6b7280;font-size:11px;text-transform:uppercase;letter-spacing:.6px;">Seu código</p>
+          <p style="margin:0;color:#0b1929;font-size:30px;font-weight:bold;font-family:'Courier New',Courier,monospace;letter-spacing:7px;">${codigo}</p>
+        </td></tr>
+      </table>
     </td></tr>
 
-    <tr><td style="padding:14px 28px 4px;">
+    <tr><td style="padding:18px 28px 4px;">
       <p style="margin:0;color:#6b7280;font-size:12.5px;line-height:1.55;">
-        O link vale por 1 hora e só pode ser usado uma vez. Se ele expirar, é só
-        pedir de novo na tela de login.
+        O código vale por 1 hora e só pode ser usado uma vez. Se ele expirar,
+        peça outro na mesma tela.
       </p>
     </td></tr>
 
     <tr><td style="padding:16px 28px 24px;">
       <p style="margin:0;color:#9aa3b2;font-size:11.5px;line-height:1.5;">
         <strong>Não foi você?</strong> Ignore este e-mail. A sua senha atual continua
-        valendo e nada muda enquanto o link não for aberto.
+        valendo e nada muda enquanto o código não for usado.
       </p>
     </td></tr>`;
 }
@@ -210,7 +215,7 @@ async function recuperarSenha(email: string) {
   // esta tela num verificador de e-mails cadastrados para qualquer um.
   const resposta = {
     ok: true,
-    mensagem: "Se este e-mail estiver cadastrado, o link de redefinição chega em instantes.",
+    mensagem: "Se este e-mail estiver cadastrado, o código chega em instantes.",
   };
   if (!alvo || !alvo.includes("@")) return resposta;
 
@@ -221,12 +226,21 @@ async function recuperarSenha(email: string) {
   const { data: perfil } = await sb
     .from("usuarios").select("nome").eq("id", existe as string).maybeSingle();
 
+  // Geramos o link só para extrair dele o `email_otp`; o action_link NÃO vai no
+  // e-mail. Verificadores de segurança de e-mail (Google Workspace, Outlook)
+  // abrem os links das mensagens antes do destinatário, e o token é de uso
+  // único — na prática o link chegava sempre queimado, e o sistema devolvia a
+  // tela de login sem explicar nada. Código digitado não tem esse problema:
+  // scanner nenhum digita.
+  //
+  // Link e código são o MESMO token, então mandar os dois não seria um
+  // fallback: o scanner queimaria os dois juntos.
   const { data: link, error } = await sb.auth.admin.generateLink({
     type: "recovery",
     email: alvo,
     options: { redirectTo: APP_URL },
   });
-  if (error || !link?.properties?.action_link) return resposta;
+  if (error || !link?.properties?.email_otp) return resposta;
 
   const resendKey = Deno.env.get("RESEND_API_KEY");
   if (resendKey) {
@@ -237,8 +251,8 @@ async function recuperarSenha(email: string) {
       body: JSON.stringify({
         from: remetente,
         to: [alvo],
-        subject: "Redefinir a sua senha do ARGOS · Comissões",
-        html: layout(corpoRecuperacao((perfil as { nome?: string } | null)?.nome ?? alvo, link.properties.action_link)),
+        subject: "Seu código para redefinir a senha do ARGOS",
+        html: layout(corpoRecuperacao((perfil as { nome?: string } | null)?.nome ?? alvo, link.properties.email_otp)),
       }),
     });
     // A resposta ao usuário não pode mudar (senão vira verificador de e-mails),

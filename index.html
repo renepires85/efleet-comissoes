@@ -626,18 +626,30 @@
   <div class="modal-box" style="width:440px;" role="dialog" aria-modal="true" aria-labelledby="mr-titulo">
     <button class="modal-close" onclick="fecharModalRecuperar()" aria-label="Fechar">✕</button>
     <div class="modal-title" id="mr-titulo">Esqueci minha senha</div>
-    <div class="modal-sub">Informe o e-mail da sua conta. Enviamos um link para você definir uma nova senha.</div>
+    <div class="modal-sub" id="mr-sub">Informe o e-mail da sua conta. Enviamos um código de 8 dígitos para você definir uma nova senha.</div>
 
     <div class="form-field">
       <label class="input-label" for="mr-email">E-mail</label>
       <input type="email" class="input" id="mr-email" autocomplete="email" placeholder="seu@efleet.digital">
     </div>
 
+    <!-- Código, e não link clicável: verificadores de segurança de e-mail
+         (Google Workspace, Outlook) abrem os links das mensagens antes do
+         destinatário, e o token é de uso único — chegava sempre queimado. -->
+    <div class="form-field" id="mr-campo-codigo" style="display:none;">
+      <label class="input-label" for="mr-codigo">Código recebido por e-mail</label>
+      <input type="text" class="input" id="mr-codigo" inputmode="numeric" autocomplete="one-time-code"
+             maxlength="8" placeholder="00000000"
+             style="font-family:ui-monospace,monospace;font-size:19px;letter-spacing:4px;text-align:center;">
+    </div>
+
     <div id="mr-aviso" style="display:none;font-size:13px;margin:4px 0 14px;line-height:1.5;"></div>
 
     <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:20px;">
       <button class="btn btn-ghost btn-md" onclick="fecharModalRecuperar()">Cancelar</button>
-      <button class="btn btn-primary btn-md" id="mr-enviar" onclick="enviarRecuperacao()">Enviar link</button>
+      <button class="btn btn-ghost btn-md" id="mr-reenviar" style="display:none;" onclick="enviarRecuperacao()">Reenviar código</button>
+      <button class="btn btn-primary btn-md" id="mr-enviar" onclick="enviarRecuperacao()">Enviar código</button>
+      <button class="btn btn-primary btn-md" id="mr-validar" style="display:none;" onclick="validarCodigoRecuperacao()">Continuar</button>
     </div>
   </div>
 </div>

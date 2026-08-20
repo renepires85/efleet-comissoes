@@ -236,9 +236,22 @@ async function salvarNovaSenha() {
 
 function abrirModalRecuperar() {
   document.getElementById('mr-email').value = document.getElementById('email-input').value.trim();
+  document.getElementById('mr-codigo').value = '';
+  mostrarEtapaCodigo(false);
   avisoRecuperar('');
   document.getElementById('modal-recuperar').style.display = 'flex';
   document.getElementById('mr-email').focus();
+}
+
+function mostrarEtapaCodigo(mostrar) {
+  document.getElementById('mr-campo-codigo').style.display = mostrar ? 'block' : 'none';
+  document.getElementById('mr-enviar').style.display    = mostrar ? 'none' : 'inline-flex';
+  document.getElementById('mr-validar').style.display   = mostrar ? 'inline-flex' : 'none';
+  document.getElementById('mr-reenviar').style.display  = mostrar ? 'inline-flex' : 'none';
+  document.getElementById('mr-email').readOnly = mostrar;
+  document.getElementById('mr-sub').textContent = mostrar
+    ? 'Digite o código que enviamos por e-mail. Ele vale por 1 hora e só pode ser usado uma vez.'
+    : 'Informe o e-mail da sua conta. Enviamos um código de 8 dígitos para você definir uma nova senha.';
 }
 
 function fecharModalRecuperar() {
@@ -255,9 +268,11 @@ function avisoRecuperar(msg, tipo = 'erro') {
 
 async function enviarRecuperacao() {
   const email = document.getElementById('mr-email').value.trim();
-  const btn   = document.getElementById('mr-enviar');
+  const btn   = document.getElementById(
+    document.getElementById('mr-reenviar').style.display === 'none' ? 'mr-enviar' : 'mr-reenviar');
   if (!email || !email.includes('@')) return avisoRecuperar('Informe um e-mail válido.');
 
+  const rotulo = btn.textContent;
   btn.disabled = true; btn.textContent = 'Enviando...';
   try {
     const res = await fetch(SMART_URL, {
@@ -267,11 +282,38 @@ async function enviarRecuperacao() {
     });
     const r = await res.json();
     if (r.error) throw new Error(r.error);
+    mostrarEtapaCodigo(true);
     avisoRecuperar(r.mensagem, 'ok');
-    setTimeout(fecharModalRecuperar, 4000);
+    document.getElementById('mr-codigo').focus();
   } catch (e) {
     avisoRecuperar('Não foi possível enviar agora: ' + (e?.message || e));
   } finally {
-    btn.disabled = false; btn.textContent = 'Enviar link';
+    btn.disabled = false; btn.textContent = rotulo;
+  }
+}
+
+// Trocar o código por uma sessão dispara PASSWORD_RECOVERY, e daí em diante quem
+// assume é o modal de troca obrigatória — o mesmo que atende a senha provisória.
+async function validarCodigoRecuperacao() {
+  const email  = document.getElementById('mr-email').value.trim();
+  const codigo = document.getElementById('mr-codigo').value.trim().replace(/\D/g, '');
+  const btn    = document.getElementById('mr-validar');
+  if (codigo.length < 6) return avisoRecuperar('Digite o código que chegou por e-mail.');
+
+  btn.disabled = true; btn.textContent = 'Verificando...';
+  try {
+    const { error } = await sb.auth.verifyOtp({ email, token: codigo, type: 'recovery' });
+    if (error) {
+      avisoRecuperar(/expired|invalid/i.test(error.message)
+        ? 'Código inválido ou já usado. Clique em "Reenviar código" para receber outro.'
+        : error.message);
+      return;
+    }
+    fecharModalRecuperar();
+    await entrarModoRecuperacao();
+  } catch (e) {
+    avisoRecuperar('Erro inesperado: ' + (e?.message || e));
+  } finally {
+    btn.disabled = false; btn.textContent = 'Continuar';
   }
 }

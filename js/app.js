@@ -92,6 +92,14 @@ document.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('btn-pr-limpar').addEventListener('click', limparFiltrosPrestadores);
 
   // ── VERIFICAR SESSÃO ────────────────────────────────────────────────────────
+  // Link que falhou: avisa em vez de devolver uma tela de login muda.
+  if (erroNaUrl) {
+    const err = document.getElementById('login-error');
+    err.textContent = erroNaUrl;
+    err.style.display = 'block';
+    history.replaceState(null, '', location.pathname);
+  }
+
   const { data: { session } } = await sb.auth.getSession();
   // Sessão criada por link de recuperação serve só para trocar a senha.
   if (recuperacaoDeSenha) { await entrarModoRecuperacao(); return; }

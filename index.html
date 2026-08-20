@@ -317,7 +317,29 @@
         </div>
       </div>
       <div class="section">
-        <div class="section-header"><div><div class="section-title">Cadastrados</div></div></div>
+        <div class="section-header"><div><div class="section-title">Cadastrados</div><div class="section-sub" id="pr-filtro-info"></div></div></div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;padding:14px 22px;border-bottom:1px solid rgba(255,255,255,0.06);">
+          <input class="input" id="pr-f-busca" placeholder="Buscar nome, documento, e-mail ou código..." style="width:290px;">
+          <select class="input" id="pr-f-parceiro" style="width:170px;">
+            <option value="">Parceiro: todos</option>
+            <option value="vendedor">Vendedor</option>
+            <option value="indicador">Indicador</option>
+          </select>
+          <!-- Abre em "Ativos": a lista cresce com desligamentos e cadastros
+               antigos, e quem entra aqui quase sempre quer mexer em quem está
+               trabalhando hoje. Inativo continua a um clique. -->
+          <select class="input" id="pr-f-status" style="width:150px;">
+            <option value="ativo" selected>Status: ativos</option>
+            <option value="inativo">Inativos</option>
+            <option value="">Todos</option>
+          </select>
+          <select class="input" id="pr-f-acesso" style="width:170px;">
+            <option value="">Acesso: todos</option>
+            <option value="sim">Com acesso</option>
+            <option value="nao">Sem acesso</option>
+          </select>
+          <button class="btn btn-ghost btn-sm" id="btn-pr-limpar">✕ Limpar filtros</button>
+        </div>
         <div class="table-wrap"><table>
           <thead><tr><th>Nome</th><th>Tipo</th><th>Documento</th><th>E-mail</th><th>Banco</th><th>PIX</th><th>Status</th><th></th></tr></thead>
           <tbody id="tbody-prestadores"><tr><td colspan="8" class="loading">Carregando...</td></tr></tbody>

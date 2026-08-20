@@ -84,6 +84,13 @@ document.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('cp-f-erro').addEventListener('change', renderCpDetalhe);
   document.getElementById('btn-cp-limpar').addEventListener('click', () => limparFiltrosCp());
 
+  // Cadastros
+  document.getElementById('pr-f-busca').addEventListener('input', renderPrestadores);
+  document.getElementById('pr-f-parceiro').addEventListener('change', renderPrestadores);
+  document.getElementById('pr-f-status').addEventListener('change', renderPrestadores);
+  document.getElementById('pr-f-acesso').addEventListener('change', renderPrestadores);
+  document.getElementById('btn-pr-limpar').addEventListener('click', limparFiltrosPrestadores);
+
   // ── VERIFICAR SESSÃO ────────────────────────────────────────────────────────
   const { data: { session } } = await sb.auth.getSession();
   if (session) {

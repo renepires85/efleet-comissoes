@@ -1,7 +1,58 @@
 // ── CARREGAR PRESTADORES ──────────────────────────────────────────────────────
+// A lista inteira fica em memória e os filtros trabalham em cima dela: são
+// poucas dezenas de linhas, e ir ao banco a cada tecla digitada deixaria a
+// busca perceptivelmente atrasada em relação ao que se está digitando.
+let prestadoresCache = [];
+
+// Acento fora e caixa baixa dos dois lados: "vitoria" precisa achar "Vitória".
+// Foi um acento não normalizado que já custou a comissão de uma parceira aqui.
+const chaveBusca = (t) => (t ?? '').toString()
+  .normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+
 async function carregarPrestadores() {
   const { data } = await sb.from('prestadores').select('*').order('nome');
   if (!data) return;
+  prestadoresCache = data;
+  renderPrestadores();
+}
+
+function renderPrestadores() {
+  const busca    = chaveBusca(document.getElementById('pr-f-busca')?.value.trim());
+  const parceiro = document.getElementById('pr-f-parceiro')?.value ?? '';
+  const status   = document.getElementById('pr-f-status')?.value ?? '';
+  const acesso   = document.getElementById('pr-f-acesso')?.value ?? '';
+
+  const data = prestadoresCache.filter(p => {
+    // Cadastro antigo sem tipo_parceiro preenchido conta como vendedor, que é
+    // o que ele era antes de o campo existir.
+    const ehIndicador = p.tipo_parceiro === 'indicador';
+    if (parceiro === 'indicador' && !ehIndicador) return false;
+    if (parceiro === 'vendedor'  &&  ehIndicador) return false;
+
+    if (status === 'ativo'   && !p.ativo) return false;
+    if (status === 'inativo' &&  p.ativo) return false;
+
+    if (acesso === 'sim' && !p.usuario_id) return false;
+    if (acesso === 'nao' &&  p.usuario_id) return false;
+
+    if (!busca) return true;
+    return [p.nome, p.documento, p.email, p.codigo, p.pix]
+      .some(campo => chaveBusca(campo).includes(busca));
+  });
+
+  const info = document.getElementById('pr-filtro-info');
+  if (info) {
+    info.textContent = data.length === prestadoresCache.length
+      ? `${data.length} parceiro${data.length === 1 ? '' : 's'}`
+      : `${data.length} de ${prestadoresCache.length} parceiros`;
+  }
+
+  if (!data.length) {
+    document.getElementById('tbody-prestadores').innerHTML =
+      `<tr><td colspan="8" class="loading">Nenhum parceiro encontrado com esses filtros.</td></tr>`;
+    return;
+  }
+
   document.getElementById('tbody-prestadores').innerHTML = data.map(p => {
     const ehIndicador = p.tipo_parceiro === 'indicador';
     return `<tr>
@@ -28,6 +79,17 @@ async function carregarPrestadores() {
     </td>
   </tr>`;
   }).join('');
+}
+
+// Volta ao estado INICIAL da tela, não a "tudo sem filtro": o padrão de abrir
+// só com ativos é uma decisão da tela, e limpar tem que devolver a ela. Sair
+// daqui mostrando os inativos junto seria trocar um filtro por outro.
+function limparFiltrosPrestadores() {
+  document.getElementById('pr-f-busca').value    = '';
+  document.getElementById('pr-f-parceiro').value = '';
+  document.getElementById('pr-f-status').value   = 'ativo';
+  document.getElementById('pr-f-acesso').value   = '';
+  renderPrestadores();
 }
 
 // ── ENVIAR / REENVIAR ACESSO ──────────────────────────────────────────────────

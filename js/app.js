@@ -93,6 +93,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // ── VERIFICAR SESSÃO ────────────────────────────────────────────────────────
   const { data: { session } } = await sb.auth.getSession();
+  // Sessão criada por link de recuperação serve só para trocar a senha.
+  if (recuperacaoDeSenha) { await entrarModoRecuperacao(); return; }
   if (session) {
     currentUser = session.user;
     const { data: usuario } = await sb.from('usuarios').select('*').eq('id', session.user.id).single();

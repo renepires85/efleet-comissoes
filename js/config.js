@@ -8,6 +8,18 @@ const SMART_URL    = SUPABASE_URL + '/functions/v1/smart-service';
 const { createClient } = supabase;
 const sb = createClient(SUPABASE_URL, SUPABASE_ANON);
 
+// Link de recuperação de senha.
+// O link do e-mail cria uma sessão válida — sem tratar isso, a pessoa entraria
+// direto no sistema e NUNCA definiria a senha nova, que é o motivo de ela ter
+// clicado. O evento pode chegar antes ou depois do init da página, então o
+// marcador fica aqui (registrado antes de tudo) e o init consulta depois.
+let recuperacaoDeSenha = false;
+sb.auth.onAuthStateChange((evento) => {
+  if (evento !== 'PASSWORD_RECOVERY') return;
+  recuperacaoDeSenha = true;
+  if (typeof entrarModoRecuperacao === 'function') entrarModoRecuperacao();
+});
+
 // ── ESTADO GLOBAL ─────────────────────────────────────────────────────────────
 let currentUser        = null;
 let currentPerfil      = null;

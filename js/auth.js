@@ -89,16 +89,34 @@ async function setupApp(usuario) {
 // máquina destravada, navegador compartilhado — trocaria a senha e tomaria a
 // conta. Confirmamos reautenticando com signInWithPassword antes de trocar.
 
-// Quando true, o modal está no modo obrigatório: sem ✕, sem Cancelar, sem
-// fechar clicando fora, e sem o campo "senha atual" — a pessoa acabou de provar
-// que sabe a senha provisória ao entrar, e pedir de novo é só atrito.
-let trocaObrigatoria = false;
+// Modo obrigatório do modal: sem ✕, sem Cancelar, sem fechar clicando fora e
+// sem o campo "senha atual". Dois caminhos chegam aqui e o texto muda entre
+// eles, mas a trava é a mesma:
+//   'provisoria'  — entrou com a senha que o sistema gerou
+//   'recuperacao' — chegou pelo link de "esqueci minha senha"
+// Em nenhum dos dois pedimos a senha atual: no primeiro ela acabou de ser
+// digitada no login; no segundo a pessoa não a sabe — é justamente o motivo de
+// estar aqui. Quem autoriza é a sessão, que só existe porque ela provou algo.
+let trocaObrigatoria = null;
 let usuarioAguardandoTroca = null;
 
-function exigirTrocaDeSenha(usuario) {
-  trocaObrigatoria = true;
+function exigirTrocaDeSenha(usuario, modo = 'provisoria') {
+  trocaObrigatoria = modo;
   usuarioAguardandoTroca = usuario;
   abrirModalSenha();
+}
+
+// Chamado quando o link do e-mail de recuperação cria a sessão.
+async function entrarModoRecuperacao() {
+  const { data: { user } } = await sb.auth.getUser();
+  if (!user) return;
+  const { data: usuario } = await sb.from('usuarios').select('*').eq('id', user.id).single();
+  if (!usuario) return;
+  currentUser = user;
+  currentPerfil = usuario.perfil;
+  document.getElementById('app').style.display = 'none';
+  document.getElementById('login-screen').style.display = 'flex';
+  exigirTrocaDeSenha(usuario, 'recuperacao');
 }
 
 function abrirModalSenha() {
@@ -108,12 +126,19 @@ function abrirModalSenha() {
   document.getElementById('ms-campo-atual').style.display = trocaObrigatoria ? 'none' : 'block';
   document.getElementById('ms-fechar').style.display     = trocaObrigatoria ? 'none' : 'block';
   document.getElementById('ms-cancelar').style.display   = trocaObrigatoria ? 'none' : 'inline-flex';
-  document.getElementById('ms-titulo').textContent = trocaObrigatoria
-    ? 'Crie a sua senha' : 'Alterar senha';
-  document.getElementById('ms-sub').textContent = trocaObrigatoria
-    ? 'Você entrou com a senha provisória que a eFleet enviou. Escolha agora uma senha que só você conheça — ela substitui a provisória.'
-    : 'Escolha uma senha que só você conheça.';
-  document.getElementById('ms-salvar').textContent = trocaObrigatoria ? 'Criar senha' : 'Alterar senha';
+  document.getElementById('ms-titulo').textContent =
+    trocaObrigatoria === 'recuperacao' ? 'Defina uma nova senha'
+    : trocaObrigatoria ? 'Crie a sua senha'
+    : 'Alterar senha';
+  document.getElementById('ms-sub').textContent =
+    trocaObrigatoria === 'recuperacao'
+      ? 'Confirmamos o seu e-mail. Escolha agora a nova senha — a anterior deixa de valer.'
+    : trocaObrigatoria
+      ? 'Você entrou com a senha provisória que a eFleet enviou. Escolha agora uma senha que só você conheça — ela substitui a provisória.'
+      : 'Escolha uma senha que só você conheça.';
+  document.getElementById('ms-salvar').textContent =
+    trocaObrigatoria === 'recuperacao' ? 'Salvar nova senha'
+    : trocaObrigatoria ? 'Criar senha' : 'Alterar senha';
 
   document.getElementById('modal-senha').style.display = 'flex';
   document.getElementById(trocaObrigatoria ? 'ms-nova' : 'ms-atual').focus();
@@ -137,7 +162,7 @@ async function salvarNovaSenha() {
   const nova  = document.getElementById('ms-nova').value;
   const nova2 = document.getElementById('ms-nova2').value;
   const btn   = document.getElementById('ms-salvar');
-  const rotulo = trocaObrigatoria ? 'Criar senha' : 'Alterar senha';
+  const rotulo = document.getElementById('ms-salvar').textContent;
 
   if (!trocaObrigatoria && !atual) return avisoSenha('Informe sua senha atual.');
   if (nova.length < 8)             return avisoSenha('A senha precisa ter ao menos 8 caracteres.');
@@ -154,7 +179,7 @@ async function salvarNovaSenha() {
       // escolhida: se funcionar, ela É a provisória, e manter a provisória é
       // exatamente o que esta tela existe para impedir.
       const { error: igual } = await sb.auth.signInWithPassword({ email: user.email, password: nova });
-      if (!igual) { avisoSenha('Essa é a senha provisória. Escolha uma diferente.'); return; }
+      if (!igual) { avisoSenha('Essa já é a sua senha atual. Escolha uma diferente.'); return; }
     } else {
       // Confirma que quem está na frente da tela sabe a senha atual.
       const { error: erroLogin } = await sb.auth.signInWithPassword({ email: user.email, password: atual });
@@ -175,9 +200,9 @@ async function salvarNovaSenha() {
     if (erroFlag) { avisoSenha('Senha salva, mas houve um erro no cadastro: ' + erroFlag.message); return; }
 
     if (trocaObrigatoria) {
-      avisoSenha('Senha criada. Entrando...', 'ok');
+      avisoSenha('Senha salva. Entrando...', 'ok');
       const usuario = { ...usuarioAguardandoTroca, senha_provisoria: false };
-      trocaObrigatoria = false; usuarioAguardandoTroca = null;
+      trocaObrigatoria = null; usuarioAguardandoTroca = null; recuperacaoDeSenha = false;
       setTimeout(async () => { fecharModalSenha(); await setupApp(usuario); }, 1200);
       return;
     }
@@ -188,5 +213,55 @@ async function salvarNovaSenha() {
     avisoSenha('Erro inesperado: ' + (e?.message || e));
   } finally {
     btn.disabled = false; btn.textContent = rotulo;
+  }
+}
+
+// ── ESQUECI MINHA SENHA ───────────────────────────────────────────────────────
+// Até aqui não havia saída nenhuma: quem esquecia a senha dependia de alguém da
+// gestão redefinir no banco. O próprio Rene ficou de fora do sistema por isso.
+//
+// O envio é feito pela smart-service, que gera o link pela API Admin e entrega
+// pelo Resend. A resposta é sempre a mesma, exista ou não a conta — do
+// contrário esta tela viraria um verificador de e-mails cadastrados.
+
+function abrirModalRecuperar() {
+  document.getElementById('mr-email').value = document.getElementById('email-input').value.trim();
+  avisoRecuperar('');
+  document.getElementById('modal-recuperar').style.display = 'flex';
+  document.getElementById('mr-email').focus();
+}
+
+function fecharModalRecuperar() {
+  document.getElementById('modal-recuperar').style.display = 'none';
+}
+
+function avisoRecuperar(msg, tipo = 'erro') {
+  const el = document.getElementById('mr-aviso');
+  if (!msg) { el.style.display = 'none'; return; }
+  el.textContent = msg;
+  el.style.color = tipo === 'ok' ? 'var(--efl-green-400)' : 'var(--efl-red)';
+  el.style.display = 'block';
+}
+
+async function enviarRecuperacao() {
+  const email = document.getElementById('mr-email').value.trim();
+  const btn   = document.getElementById('mr-enviar');
+  if (!email || !email.includes('@')) return avisoRecuperar('Informe um e-mail válido.');
+
+  btn.disabled = true; btn.textContent = 'Enviando...';
+  try {
+    const res = await fetch(SMART_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'apikey': SUPABASE_ANON, 'Authorization': `Bearer ${SUPABASE_ANON}` },
+      body: JSON.stringify({ recuperar: email })
+    });
+    const r = await res.json();
+    if (r.error) throw new Error(r.error);
+    avisoRecuperar(r.mensagem, 'ok');
+    setTimeout(fecharModalRecuperar, 4000);
+  } catch (e) {
+    avisoRecuperar('Não foi possível enviar agora: ' + (e?.message || e));
+  } finally {
+    btn.disabled = false; btn.textContent = 'Enviar link';
   }
 }

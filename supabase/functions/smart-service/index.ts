@@ -5,6 +5,7 @@
 //   { nome, email, perfil }  → convite avulso, da tela "Convidar". Cria o
 //                              login e, para vendedor/indicador, liga ao
 //                              cadastro de prestador correspondente.
+//   { recuperar: email }     → "Esqueci minha senha" da tela de login.
 //   { prestador_id }         → botão "Enviar acesso" da aba Cadastros. Parte
 //                              de um prestador que JÁ existe e resolve o que
 //                              faltar: cria o login se não houver, religa se
@@ -164,6 +165,90 @@ async function enviarEmailAcesso(nome: string, email: string, senha: string, pap
   return resp.ok;
 }
 
+
+// ── RECUPERAÇÃO DE SENHA ──────────────────────────────────────────────────────
+// Pelo Resend e não pelo e-mail nativo do Supabase: o remetente padrão dele tem
+// limite baixo por hora e cai em spam com frequência: um e-mail de recuperação
+// que não chega é o mesmo que não existir. O domínio da eFleet já está
+// verificado no Resend e é o mesmo remetente das outras mensagens do sistema.
+
+function corpoRecuperacao(nome: string, link: string) {
+  return `
+    <tr><td style="padding:28px 28px 0;">
+      <p style="margin:0 0 4px;color:#0b1929;font-size:20px;font-weight:bold;">Olá, ${PRIMEIRO_NOME(nome)}</p>
+      <p style="margin:0 0 20px;color:#374151;font-size:14px;line-height:1.55;">
+        Recebemos um pedido para redefinir a sua senha do ARGOS · Comissões.
+        Clique no botão abaixo para escolher uma nova.
+      </p>
+    </td></tr>
+
+    <tr><td align="center" style="padding:4px 28px 8px;">
+      <a href="${link}" style="display:inline-block;background:#245091;color:#ffffff;text-decoration:none;font-weight:bold;font-size:14px;padding:13px 30px;border-radius:8px;">Redefinir minha senha →</a>
+    </td></tr>
+
+    <tr><td style="padding:14px 28px 4px;">
+      <p style="margin:0;color:#6b7280;font-size:12.5px;line-height:1.55;">
+        O link vale por 1 hora e só pode ser usado uma vez. Se ele expirar, é só
+        pedir de novo na tela de login.
+      </p>
+    </td></tr>
+
+    <tr><td style="padding:16px 28px 24px;">
+      <p style="margin:0;color:#9aa3b2;font-size:11.5px;line-height:1.5;">
+        <strong>Não foi você?</strong> Ignore este e-mail. A sua senha atual continua
+        valendo e nada muda enquanto o link não for aberto.
+      </p>
+    </td></tr>`;
+}
+
+async function recuperarSenha(email: string) {
+  const alvo = (email ?? "").trim().toLowerCase();
+
+  // Resposta idêntica exista ou não a conta. Responder diferente transformaria
+  // esta tela num verificador de e-mails cadastrados para qualquer um.
+  const resposta = {
+    ok: true,
+    mensagem: "Se este e-mail estiver cadastrado, o link de redefinição chega em instantes.",
+  };
+  if (!alvo || !alvo.includes("@")) return resposta;
+
+  const sb = criarCliente();
+  const { data: existe } = await sb.rpc("auth_user_id_por_email", { p_email: alvo });
+  if (!existe) return resposta;
+
+  const { data: perfil } = await sb
+    .from("usuarios").select("nome").eq("id", existe as string).maybeSingle();
+
+  const { data: link, error } = await sb.auth.admin.generateLink({
+    type: "recovery",
+    email: alvo,
+    options: { redirectTo: APP_URL },
+  });
+  if (error || !link?.properties?.action_link) return resposta;
+
+  const resendKey = Deno.env.get("RESEND_API_KEY");
+  if (resendKey) {
+    const remetente = Deno.env.get("RESEND_FROM") ?? "eFleet · Comissões <onboarding@resend.dev>";
+    const envio = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${resendKey}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        from: remetente,
+        to: [alvo],
+        subject: "Redefinir a sua senha do ARGOS · Comissões",
+        html: layout(corpoRecuperacao((perfil as { nome?: string } | null)?.nome ?? alvo, link.properties.action_link)),
+      }),
+    });
+    // A resposta ao usuário não pode mudar (senão vira verificador de e-mails),
+    // mas a falha não pode sumir: sem este log, um e-mail de recuperação que
+    // não sai fica indistinguível de um que saiu, para nós inclusive.
+    if (!envio.ok) {
+      console.error(`recuperar_senha: Resend ${envio.status} para ${alvo}: ${(await envio.text()).slice(0, 200)}`);
+    }
+  }
+  return resposta;
+}
+
 // ── ENVIAR ACESSO A UM PRESTADOR JÁ CADASTRADO ────────────────────────────────
 async function enviarAcessoPrestador(prestadorId: string) {
   const sb = criarCliente();
@@ -286,6 +371,10 @@ Deno.serve(async (req: Request) => {
 
   try {
     const corpo = await req.json();
+
+    if (corpo.recuperar) {
+      return json(await recuperarSenha(corpo.recuperar));
+    }
 
     if (corpo.prestador_id) {
       return json(await enviarAcessoPrestador(corpo.prestador_id));

@@ -38,7 +38,10 @@
     </div>
     <button class="btn btn-primary btn-lg btn-full" id="login-btn">Entrar</button>
     <div class="login-error" id="login-error">E-mail, senha ou perfil incorretos.</div>
-    <div style="text-align:center;margin-top:20px;">
+    <div style="text-align:center;margin-top:14px;">
+      <button onclick="abrirModalRecuperar()" style="background:none;border:none;color:var(--efl-gray-400);font-size:13px;cursor:pointer;font-family:var(--efl-font-body);text-decoration:underline;">Esqueci minha senha</button>
+    </div>
+    <div style="text-align:center;margin-top:14px;">
       <span style="font-size:13px;color:var(--efl-gray-500);">Não tem acesso? </span>
       <button onclick="abrirModalSolicitacao()" style="background:none;border:none;color:var(--efl-green-500);font-size:13px;font-weight:700;cursor:pointer;font-family:var(--efl-font-body);">Solicitar acesso</button>
     </div>
@@ -604,5 +607,26 @@
     </div>
   </div>
 
+
+<!-- RECUPERAR SENHA -->
+<div class="modal-overlay" id="modal-recuperar" onclick="if(event.target===this)fecharModalRecuperar()">
+  <div class="modal-box" style="width:440px;" role="dialog" aria-modal="true" aria-labelledby="mr-titulo">
+    <button class="modal-close" onclick="fecharModalRecuperar()" aria-label="Fechar">✕</button>
+    <div class="modal-title" id="mr-titulo">Esqueci minha senha</div>
+    <div class="modal-sub">Informe o e-mail da sua conta. Enviamos um link para você definir uma nova senha.</div>
+
+    <div class="form-field">
+      <label class="input-label" for="mr-email">E-mail</label>
+      <input type="email" class="input" id="mr-email" autocomplete="email" placeholder="seu@efleet.digital">
+    </div>
+
+    <div id="mr-aviso" style="display:none;font-size:13px;margin:4px 0 14px;line-height:1.5;"></div>
+
+    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:20px;">
+      <button class="btn btn-ghost btn-md" onclick="fecharModalRecuperar()">Cancelar</button>
+      <button class="btn btn-primary btn-md" id="mr-enviar" onclick="enviarRecuperacao()">Enviar link</button>
+    </div>
+  </div>
+</div>
 </body>
 </html>

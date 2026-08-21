@@ -209,6 +209,16 @@ serve(async (req) => {
       const emails = (destinatarios ?? []).map((d: { email: string }) => d.email).filter(Boolean);
       if (!emails.length) return json({ ok: true, enviados: 0, motivo: "nenhum usuário de gestão ativo" });
 
+      // O cron roda nos dias 3, 4 e 5 — os dois últimos existem como retentativa
+      // caso a trava de completude adie o dia 3. Se o dia 3 deu certo, os dias
+      // seguintes recebem 'periodo_ja_fechado', que é o sistema funcionando.
+      // Sem este ramo, todo mês a gestão receberia dois "FECHAMENTO FALHOU"
+      // com tudo em ordem — e um alarme que dispara sozinho todo mês é um
+      // alarme que ninguém lê mais quando importa.
+      if (resultado?.motivo === "periodo_ja_fechado") {
+        return json({ ok: true, enviados: 0, motivo: "período já estava fechado, nada a avisar" });
+      }
+
       const adiado = resultado?.adiado === true;
       const falhou = resultado?.ok === false && !adiado;
       const periodo = resultado?.periodo ?? "—";
@@ -262,6 +272,10 @@ serve(async (req) => {
         : falhou
         ? `eFleet · Fechamento de ${periodo} FALHOU`
         : `eFleet · Fechamento de ${periodo} concluído`;
+
+      if (body?.simular) {
+        return json({ ok: true, simulacao: true, destinatarios: emails, assunto, adiado, falhou });
+      }
 
       const id = await enviarResend(resendKey, emails, assunto,
         layout(`<tr><td style="padding:28px;">${corpo}
@@ -428,12 +442,24 @@ serve(async (req) => {
         .neq("status", "concluido")
         .order("criado_em", { ascending: true });
 
+      // Só parceiro ATIVO. Parceiro inativo não consegue entrar para aprovar —
+      // cobrar da gestão que persiga alguém sem acesso é dar trabalho que não
+      // tem como terminar. O MATHEUS sozinho, inativo, ocupava 9 das 13 linhas
+      // e empurrava as reais para o fim da lista.
       const { data: validacoesPendentes } = await supabase
         .from("validacoes_mensais")
-        .select("status, periodo_inicio, periodo_fim, criado_em, prestadores(nome)")
+        .select("status, periodo_inicio, periodo_fim, criado_em, prestadores!inner(nome, ativo)")
         .in("status", ["pendente", "contestado"])
+        .eq("prestadores.ativo", true)
         .order("status", { ascending: true })
         .order("criado_em", { ascending: true });
+
+      // Quantas ficaram de fora, para a anomalia não sumir junto com o ruído.
+      const { count: pendentesInativos } = await supabase
+        .from("validacoes_mensais")
+        .select("id, prestadores!inner(ativo)", { count: "exact", head: true })
+        .in("status", ["pendente", "contestado"])
+        .eq("prestadores.ativo", false);
 
       // Aprovadas que ninguém pagou. Faltava esta seção: o relatório cobria o
       // que espera o PARCEIRO agir e o que espera CÁLCULO, mas não o que espera
@@ -441,8 +467,9 @@ serve(async (req) => {
       // depois de todo mundo já ter concordado.
       const { data: aPagar } = await supabase
         .from("validacoes_mensais")
-        .select("prestador_id, periodo_inicio, periodo_fim, aprovado_em, prestadores(nome)")
+        .select("prestador_id, periodo_inicio, periodo_fim, aprovado_em, prestadores!inner(nome, ativo)")
         .eq("status", "aprovado")
+        .eq("prestadores.ativo", true)
         .is("pago_em", null)
         .order("aprovado_em", { ascending: true });
 
@@ -531,6 +558,7 @@ serve(async (req) => {
 
           <h3 style="margin:0 0 10px;color:#111827;font-size:14px;">✅ Aprovações pendentes (${validacoesPendentes?.length ?? 0})</h3>
           ${secaoValidacoes}
+          ${pendentesInativos ? `<p style="margin:10px 0 0;color:#9aa3b2;font-size:12px;">${pendentesInativos} pendência(s) de parceiro inativo não ${pendentesInativos === 1 ? "foi listada" : "foram listadas"} — sem acesso, não têm como aprovar.</p>` : ""}
 
           <h3 style="margin:24px 0 10px;color:#111827;font-size:14px;">💰 Aprovadas aguardando pagamento (${aPagarComValor.length})</h3>
           ${secaoPagar}
@@ -540,6 +568,25 @@ serve(async (req) => {
         </td></tr>`);
 
       const totalPend = (fechamentosPendentes?.length ?? 0) + (validacoesPendentes?.length ?? 0) + aPagarComValor.length;
+      // Simulação: devolve o que iria no e-mail sem mandar nada. Testar o
+      // relatório custava a caixa de entrada da gestão — a Kamily e a Alice
+      // receberam cinco mensagens de teste minhas hoje.
+      if (body?.simular) {
+        return json({
+          ok: true, simulacao: true, destinatarios: emails,
+          fechamentos: fechamentosPendentes?.length ?? 0,
+          validacoes: validacoesPendentes?.length ?? 0,
+          validacoes_inativos: pendentesInativos ?? 0,
+          a_pagar: aPagarComValor.length, total_a_pagar: totalAPagar,
+          a_pagar_zeradas: aPagarZeradas,
+          detalhe_a_pagar: aPagarComValor.map(v => ({
+            parceiro: ((v as Record<string, unknown>).prestadores as { nome?: string } | null)?.nome,
+            periodo: fmtPeriodo((v as Record<string, unknown>).periodo_inicio as string, (v as Record<string, unknown>).periodo_fim as string),
+            valor: valorDe(v as Record<string, unknown>),
+          })),
+        });
+      }
+
       const id = await enviarResend(
         resendKey,
         emails,
@@ -570,6 +617,7 @@ serve(async (req) => {
         ok: true, enviados: emails.length,
         fechamentos: fechamentosPendentes?.length ?? 0,
         validacoes: validacoesPendentes?.length ?? 0,
+        validacoes_inativos: pendentesInativos ?? 0,
         a_pagar: aPagarComValor.length, total_a_pagar: totalAPagar,
         a_pagar_zeradas: aPagarZeradas, id,
       });

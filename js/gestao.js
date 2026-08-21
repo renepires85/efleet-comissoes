@@ -190,11 +190,29 @@ async function carregarValidacoesGestao() {
   document.getElementById('g-pendentes').textContent = pend;
 
   if (!data || !data.length) {
-    document.getElementById('tbody-validacoes').innerHTML = '<tr><td colspan="9" class="loading">Nenhuma validação.</td></tr>';
+    document.getElementById('tbody-validacoes').innerHTML = '<tr><td colspan="10" class="loading">Nenhuma validação.</td></tr>';
     renderBotoesLote([], []);
     return;
   }
  
+  // Valor de cada validação, para a tabela mostrar.
+  //
+  // Sem esta coluna a tela colapsava períodos diferentes no mesmo rótulo — as
+  // quatro linhas de maio da Edite apareciam todas como "maio de 2026", duas
+  // vazias e duas com R$ 275,69, indistinguíveis. A conciliação deu baixa no
+  // par errado por causa disso, e as que tinham valor ficaram 79 dias pendentes.
+  const { data: comsVal } = await sb.from('comissoes')
+    .select('prestador_id,periodo_inicio,periodo_fim,comissao_bruta')
+    .eq('status', 'calculada')
+    .in('prestador_id', [...new Set(data.map(v => v.prestador_id))]);
+
+  const valorValidacao = new Map();
+  (comsVal || []).forEach(c => {
+    const k = `${c.prestador_id}|${c.periodo_inicio}|${c.periodo_fim}`;
+    valorValidacao.set(k, (valorValidacao.get(k) || 0) + Number(c.comissao_bruta || 0));
+  });
+  const valorDe = v => valorValidacao.get(`${v.prestador_id}|${v.periodo_inicio}|${v.periodo_fim}`) || 0;
+
   const idsPagarDisponiveis     = data.filter(v => v.status === 'aprovado' || v.status === 'contestado').map(v => v.id);
   const idsNotificarDisponiveis = data.filter(v => v.status === 'pendente').map(v => v.id);
  
@@ -229,7 +247,11 @@ async function carregarValidacoesGestao() {
     return `<tr>
       <td>${checkboxCell}</td>
       <td><strong style="color:#fff;font-family:var(--efl-font-head);">${v.prestadores?.nome || '—'}</strong></td>
-      <td class="td-muted">${formatPeriodo(v.periodo_inicio, v.periodo_fim)}</td>
+      <td class="td-muted">
+        ${formatPeriodo(v.periodo_inicio, v.periodo_fim)}
+        <div class="td-codigo">${v.periodo_inicio.split('-').reverse().join('/')} a ${v.periodo_fim.split('-').reverse().join('/')}</div>
+      </td>
+      <td class="td-mono" style="color:${valorDe(v) > 0 ? 'var(--efl-green-400)' : 'var(--efl-gray-500)'};">${fmtR(valorDe(v))}</td>
       <td><span class="badge ${stBadge}">${stLabel}</span></td>
       <td>${diasPend != null ? `<span class="badge ${diasPend > 5 ? 'badge-red' : 'badge-yellow'}">${diasPend}d</span>` : '—'}</td>
       <td class="td-muted">${v.aprovado_em ? new Date(v.aprovado_em).toLocaleDateString('pt-BR') : '—'}</td>

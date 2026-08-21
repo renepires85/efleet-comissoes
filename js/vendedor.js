@@ -23,13 +23,36 @@ async function carregarVendedor(pid, nome) {
 // período e leva direto ao mês certo.
 async function carregarPendencias(pid) {
   const alvo = document.getElementById('alerta-pendencias');
-  const { data } = await sb.from('validacoes_mensais')
+  const { data: pendentes } = await sb.from('validacoes_mensais')
     .select('id,periodo_inicio,periodo_fim,status')
     .eq('prestador_id', pid)
     .eq('status', 'pendente')
     .order('periodo_fim', { ascending: false });
 
-  if (!data || !data.length) { alvo.innerHTML = ''; return; }
+  if (!pendentes || !pendentes.length) { alvo.innerHTML = ''; return; }
+
+  // Só avisa o que tem valor a pagar.
+  //
+  // O aviso e o valor do mês vinham de lugares diferentes e ninguém cruzava os
+  // dois: o parceiro via "R$ 0" no topo e "você tem 1 comissão para aprovar"
+  // logo abaixo, para um mês que nem fechou. Existe uma trava na criação
+  // (criar_validacoes_pendentes só nasce com valor > 0), mas ela não alcança
+  // linha que já está na base — por exclusão de arquivo, recálculo ou correção
+  // manual. Conferir na leitura é o que torna o sintoma impossível.
+  const { data: coms } = await sb.from('comissoes')
+    .select('periodo_inicio,comissao_bruta,status')
+    .eq('prestador_id', pid)
+    .eq('status', 'calculada')
+    .in('periodo_inicio', pendentes.map(v => v.periodo_inicio));
+
+  const valorPorPeriodo = new Map();
+  (coms || []).forEach(c => {
+    valorPorPeriodo.set(c.periodo_inicio,
+      (valorPorPeriodo.get(c.periodo_inicio) || 0) + Number(c.comissao_bruta || 0));
+  });
+
+  const data = pendentes.filter(v => (valorPorPeriodo.get(v.periodo_inicio) || 0) > 0);
+  if (!data.length) { alvo.innerHTML = ''; return; }
 
   const hojeIni = new Date(); hojeIni.setDate(1);
   const mesAtual = hojeIni.toISOString().slice(0, 7);

@@ -1,12 +1,10 @@
 // ── LOGIN ─────────────────────────────────────────────────────────────────────
 async function doLogin() {
-  const perfil = document.getElementById('perfil-select').value;
   const email  = document.getElementById('email-input').value.trim();
   const senha  = document.getElementById('senha-input').value;
   const err    = document.getElementById('login-error');
   const btn    = document.getElementById('login-btn');
 
-  if (!perfil) { err.textContent = 'Selecione um perfil.'; err.style.display = 'block'; return; }
   if (!email || !senha) { err.textContent = 'Preencha e-mail e senha.'; err.style.display = 'block'; return; }
 
   btn.textContent = 'Entrando...'; btn.disabled = true; err.style.display = 'none';
@@ -18,17 +16,6 @@ async function doLogin() {
 
   const { data: usuario } = await sb.from('usuarios').select('*').eq('id', data.user.id).single();
   if (!usuario) { err.textContent = 'Usuário sem perfil cadastrado.'; err.style.display = 'block'; await sb.auth.signOut(); return; }
-  // "Parceiro Comercial" no seletor cobre os DOIS tipos de parceiro: vendedor e
-  // indicador. A distinção existe para o cálculo da comissão — o indicador ganha
-  // percentual cheio sem Curva C —, não para quem está entrando: ele só sabe que
-  // é parceiro da eFleet. Sem isso, todo indicador era barrado com "Perfil de
-  // acesso incorreto", porque o seletor nunca teve a opção 'indicador'.
-  const perfisAceitos = perfil === 'vendedor' ? ['vendedor', 'indicador'] : [perfil];
-  if (!perfisAceitos.includes(usuario.perfil)) {
-    err.textContent = 'Perfil de acesso incorreto.'; err.style.display = 'block';
-    await sb.auth.signOut(); return;
-  }
-
   // `ativo` nunca era conferido: inativar alguém não impedia nada, e a gestão
   // acreditava ter revogado um acesso que continuava funcionando. A senha
   // segue válida no Auth de propósito — inativar é reversível, e apagar o
@@ -59,7 +46,6 @@ async function doLogout() {
   document.getElementById('nav-tabs').style.display = 'none';
   document.getElementById('email-input').value = '';
   document.getElementById('senha-input').value = '';
-  document.getElementById('perfil-select').value = '';
 }
 
 // ── SETUP APP ─────────────────────────────────────────────────────────────────
@@ -86,6 +72,18 @@ async function setupApp(usuario) {
     const { data: prest } = await sb.from('prestadores').select('id,nome').eq('usuario_id', currentUser.id).single();
     if (prest) { currentPrestadorId = prest.id; await carregarVendedor(prest.id, prest.nome); }
     document.getElementById('view-vendedor').classList.add('active');
+  } else {
+    // Perfil que não é gestão nem parceiro não tem tela. Sem este ramo a pessoa
+    // entraria num aplicativo vazio, sem menu e sem conteúdo, sem entender por
+    // quê. Enquanto o seletor existia no login isso era barrado por acidente —
+    // um perfil desconhecido não casava com nenhuma opção. Agora precisa ser
+    // dito na cara.
+    document.getElementById('app').style.display = 'none';
+    document.getElementById('login-screen').style.display = 'flex';
+    const err = document.getElementById('login-error');
+    err.textContent = `Seu acesso está com o perfil "${usuario.perfil}", que não tem tela no sistema. Fale com a eFleet.`;
+    err.style.display = 'block';
+    await sb.auth.signOut();
   }
 }
 

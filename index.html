@@ -20,14 +20,11 @@
     </div>
     <div class="login-title">Bem-vindo</div>
     <div class="login-sub">Acesse com suas credenciais corporativas</div>
-    <div class="form-field">
-      <label class="input-label">Perfil de acesso</label>
-      <select class="input" id="perfil-select">
-        <option value="">Selecione...</option>
-        <option value="gestao">Gestão</option>
-        <option value="vendedor">Parceiro Comercial</option>
-      </select>
-    </div>
+    <!-- O campo "Perfil de acesso" saiu daqui. Ele era conferido DEPOIS da
+         autenticação, contra o perfil que já está no banco — não protegia nada
+         e criava um jeito de falhar com a senha certa: quem escolhesse errado
+         levava "Perfil de acesso incorreto" e concluía que a senha é que estava
+         errada. O sistema sempre soube quem é a pessoa; agora ele usa isso. -->
     <div class="form-field">
       <label class="input-label">E-mail</label>
       <input type="email" class="input" id="email-input" placeholder="seu@efleet.digital">
@@ -37,7 +34,7 @@
       <input type="password" class="input" id="senha-input" placeholder="••••••••">
     </div>
     <button class="btn btn-primary btn-lg btn-full" id="login-btn">Entrar</button>
-    <div class="login-error" id="login-error">E-mail, senha ou perfil incorretos.</div>
+    <div class="login-error" id="login-error">E-mail ou senha incorretos.</div>
     <div style="text-align:center;margin-top:14px;">
       <button onclick="abrirModalRecuperar()" style="background:none;border:none;color:var(--efl-gray-400);font-size:13px;cursor:pointer;font-family:var(--efl-font-body);text-decoration:underline;">Esqueci minha senha</button>
     </div>

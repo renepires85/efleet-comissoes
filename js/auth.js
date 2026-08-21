@@ -207,6 +207,21 @@ async function salvarNovaSenha() {
     const { error: erroFlag } = await sb.rpc('concluir_troca_de_senha');
     if (erroFlag) { avisoSenha('Senha salva, mas houve um erro no cadastro: ' + erroFlag.message); return; }
 
+    // Primeiro acesso concluído: manda o manual. Só na troca da senha
+    // PROVISÓRIA — quem chegou por recuperação já é usuário de casa. A função
+    // do servidor confere no histórico de envios se a pessoa já recebeu, então
+    // um reenvio de acesso no futuro não repete o e-mail.
+    //
+    // Sem `await` de propósito: o manual é cortesia, e uma falha de e-mail não
+    // pode segurar a entrada de quem acabou de criar a senha.
+    if (trocaObrigatoria === 'provisoria') {
+      fetch(SMART_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'apikey': SUPABASE_ANON, 'Authorization': `Bearer ${SUPABASE_ANON}` },
+        body: JSON.stringify({ manual_para: user.id })
+      }).catch(e => console.error('manual do parceiro:', e));
+    }
+
     if (trocaObrigatoria) {
       avisoSenha('Senha salva. Entrando...', 'ok');
       const usuario = { ...usuarioAguardandoTroca, senha_provisoria: false };

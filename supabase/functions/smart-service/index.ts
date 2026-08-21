@@ -415,6 +415,276 @@ async function enviarAcessoUsuario(usuarioId: string) {
   };
 }
 
+
+// ── MANUAL DO PARCEIRO ────────────────────────────────────────────────────────
+// Enviado UMA VEZ, quando a pessoa conclui o primeiro acesso — o momento em que
+// ela acabou de criar a própria senha e está com o sistema aberto pela primeira
+// vez. O controle de "uma vez" sai da própria tabela `emails_enviados`: ela já
+// existe para responder quem recebeu o quê, e uma segunda fonte de verdade só
+// divergiria da primeira.
+//
+// Não vai para gestão: o texto fala de aprovar comissão, contestar valor e
+// dados bancários, que não são o trabalho dela.
+function corpoManual(nome: string) {
+  return `<tr><td style="padding:30px 30px 0;">
+    <p style="margin:0 0 16px;color:#0b1929;font-size:22px;font-weight:bold;">Olá, ${PRIMEIRO_NOME(nome)}!</p>
+    <p style="margin:0 0 8px;color:#374151;font-size:14.5px;line-height:1.65;">
+      O <strong>Argos</strong> é o portal oficial para acompanhar suas comissões na eFleet.
+      Nele, você consulta valores, entende cada cálculo, aprova ou contesta uma comissão
+      e mantém seus dados de pagamento atualizados.
+    </p>
+  </td></tr>
+
+  <!-- 1 -->
+  <tr><td style="padding:26px 30px 0;">
+    <table cellpadding="0" cellspacing="0"><tr>
+      <td width="26" valign="top"><span style="display:inline-block;width:22px;height:22px;line-height:22px;text-align:center;background:#245091;color:#fff;border-radius:50%;font-size:12px;font-weight:bold;">1</span></td>
+      <td><p style="margin:0;color:#0b1929;font-size:16.5px;font-weight:bold;line-height:22px;">Primeiro acesso</p></td>
+    </tr></table>
+    <div style="padding-left:26px;">
+      <p style="margin:12px 0 10px;color:#374151;font-size:14px;line-height:1.65;">
+        Entre em <a href="https://efleet-comissoes.vercel.app" style="color:#245091;font-weight:bold;">efleet-comissoes.vercel.app</a>
+        utilizando seu e-mail e a senha provisória recebida.
+      </p>
+      <p style="margin:0 0 10px;color:#374151;font-size:14px;line-height:1.65;">
+        No primeiro acesso, será obrigatório criar uma senha própria. Depois, você poderá
+        alterá-la pelo botão <strong>Senha</strong>.
+      </p>
+      <p style="margin:0;color:#374151;font-size:14px;line-height:1.65;">
+        Caso esqueça, clique em <strong>Esqueci minha senha</strong>. Você receberá por e-mail
+        um código de 8 dígitos, válido por 1 hora e para uma única utilização.
+      </p>
+    </div>
+  </td></tr>
+
+  <!-- 2 -->
+  <tr><td style="padding:26px 30px 0;">
+    <table cellpadding="0" cellspacing="0"><tr>
+      <td width="26" valign="top"><span style="display:inline-block;width:22px;height:22px;line-height:22px;text-align:center;background:#245091;color:#fff;border-radius:50%;font-size:12px;font-weight:bold;">2</span></td>
+      <td><p style="margin:0;color:#0b1929;font-size:16.5px;font-weight:bold;line-height:22px;">Acompanhe suas comissões</p></td>
+    </tr></table>
+    <div style="padding-left:26px;">
+      <p style="margin:12px 0 10px;color:#374151;font-size:14px;line-height:1.65;">Na tela principal, você encontra:</p>
+      <table cellpadding="0" cellspacing="0" width="100%">
+        <tr><td style="padding:3px 0;color:#374151;font-size:14px;line-height:1.6;"><span style="color:#A4C557;font-weight:bold;">•</span>&nbsp; Comissão do mês em destaque</td></tr>
+        <tr><td style="padding:3px 0;color:#374151;font-size:14px;line-height:1.6;"><span style="color:#A4C557;font-weight:bold;">•</span>&nbsp; Valor acumulado</td></tr>
+        <tr><td style="padding:3px 0;color:#374151;font-size:14px;line-height:1.6;"><span style="color:#A4C557;font-weight:bold;">•</span>&nbsp; Separação entre comissões de FUEL e mensalidades</td></tr>
+        <tr><td style="padding:3px 0;color:#374151;font-size:14px;line-height:1.6;"><span style="color:#A4C557;font-weight:bold;">•</span>&nbsp; Filtros por mês atual, mês anterior, últimos três meses ou período personalizado</td></tr>
+      </table>
+    </div>
+  </td></tr>
+
+  <!-- 3 -->
+  <tr><td style="padding:26px 30px 0;">
+    <table cellpadding="0" cellspacing="0"><tr>
+      <td width="26" valign="top"><span style="display:inline-block;width:22px;height:22px;line-height:22px;text-align:center;background:#245091;color:#fff;border-radius:50%;font-size:12px;font-weight:bold;">3</span></td>
+      <td><p style="margin:0;color:#0b1929;font-size:16.5px;font-weight:bold;line-height:22px;">A diferença entre prévia e comissão fechada</p></td>
+    </tr></table>
+    <div style="padding-left:26px;">
+
+      <table cellpadding="0" cellspacing="0" width="100%" style="background:#fff8ec;border-left:3px solid #F0C040;border-radius:0 8px 8px 0;margin:14px 0 12px;">
+        <tr><td style="padding:14px 16px;">
+          <p style="margin:0 0 6px;color:#0b1929;font-size:14.5px;font-weight:bold;">⏳ Prévia do mês em andamento</p>
+          <p style="margin:0 0 10px;color:#374151;font-size:14px;line-height:1.6;">
+            É uma <strong>estimativa</strong> atualizada diariamente. O valor pode mudar até o fechamento do mês.
+          </p>
+          <p style="margin:0 0 6px;color:#374151;font-size:14px;line-height:1.6;">Na prévia, você acompanha:</p>
+          <table cellpadding="0" cellspacing="0" width="100%">
+            <tr><td style="padding:2px 0;color:#374151;font-size:13.5px;">•&nbsp; Total calculado</td></tr>
+            <tr><td style="padding:2px 0;color:#374151;font-size:13.5px;">•&nbsp; Valor validado</td></tr>
+            <tr><td style="padding:2px 0;color:#374151;font-size:13.5px;">•&nbsp; Valor bloqueado</td></tr>
+            <tr><td style="padding:2px 0;color:#374151;font-size:13.5px;">•&nbsp; Data e hora da última atualização</td></tr>
+            <tr><td style="padding:2px 0;color:#374151;font-size:13.5px;">•&nbsp; Clientes que compõem o cálculo</td></tr>
+          </table>
+          <p style="margin:10px 0 0;color:#6b7280;font-size:13px;line-height:1.6;">
+            A lista de clientes fica recolhida. Para visualizar, clique em <strong>Ver clientes</strong>.
+          </p>
+        </td></tr>
+      </table>
+
+      <table cellpadding="0" cellspacing="0" width="100%" style="background:#f2f7ec;border-left:3px solid #A4C557;border-radius:0 8px 8px 0;">
+        <tr><td style="padding:14px 16px;">
+          <p style="margin:0 0 6px;color:#0b1929;font-size:14.5px;font-weight:bold;">✓ Comissão fechada</p>
+          <p style="margin:0 0 10px;color:#374151;font-size:14px;line-height:1.6;">
+            É o cálculo oficial de um período já encerrado. Fica disponível no <strong>dia 3</strong> de cada mês,
+            referente ao mês anterior.
+          </p>
+          <p style="margin:0;color:#374151;font-size:14px;line-height:1.6;">
+            Você deverá conferir e escolher entre <strong>Aprovar</strong> ou <strong>Contestar</strong>.
+            Enquanto essa ação não for realizada, a comissão não seguirá para pagamento.
+          </p>
+        </td></tr>
+      </table>
+    </div>
+  </td></tr>
+
+  <!-- 4 -->
+  <tr><td style="padding:26px 30px 0;">
+    <table cellpadding="0" cellspacing="0"><tr>
+      <td width="26" valign="top"><span style="display:inline-block;width:22px;height:22px;line-height:22px;text-align:center;background:#245091;color:#fff;border-radius:50%;font-size:12px;font-weight:bold;">4</span></td>
+      <td><p style="margin:0;color:#0b1929;font-size:16.5px;font-weight:bold;line-height:22px;">Consulte o detalhamento</p></td>
+    </tr></table>
+    <div style="padding-left:26px;">
+      <p style="margin:12px 0 8px;color:#374151;font-size:14px;line-height:1.65;">Cada linha apresenta:</p>
+      <table cellpadding="0" cellspacing="0" width="100%">
+        <tr><td style="padding:2px 0;color:#374151;font-size:14px;">•&nbsp; Cliente e produto</td></tr>
+        <tr><td style="padding:2px 0;color:#374151;font-size:14px;">•&nbsp; Mês da curva e percentual de ramp</td></tr>
+        <tr><td style="padding:2px 0;color:#374151;font-size:14px;">•&nbsp; Base de cálculo</td></tr>
+        <tr><td style="padding:2px 0;color:#374151;font-size:14px;">•&nbsp; Valor da comissão</td></tr>
+        <tr><td style="padding:2px 0;color:#374151;font-size:14px;">•&nbsp; Status</td></tr>
+      </table>
+      <p style="margin:14px 0 8px;color:#374151;font-size:14px;line-height:1.65;">
+        Ao clicar no nome do cliente, você também poderá consultar:
+      </p>
+      <table cellpadding="0" cellspacing="0" width="100%">
+        <tr><td style="padding:2px 0;color:#374151;font-size:14px;">•&nbsp; Data da primeira transação e da primeira mensalidade</td></tr>
+        <tr><td style="padding:2px 0;color:#374151;font-size:14px;">•&nbsp; TPV do mês</td></tr>
+        <tr><td style="padding:2px 0;color:#374151;font-size:14px;">•&nbsp; Receita FUEL utilizada no cálculo</td></tr>
+        <tr><td style="padding:2px 0;color:#374151;font-size:14px;">•&nbsp; Percentual aplicado</td></tr>
+        <tr><td style="padding:2px 0;color:#374151;font-size:14px;">•&nbsp; Mensalidades</td></tr>
+        <tr><td style="padding:2px 0;color:#374151;font-size:14px;">•&nbsp; Situação do cliente e motivo de eventual bloqueio</td></tr>
+        <tr><td style="padding:2px 0;color:#374151;font-size:14px;">•&nbsp; CNPJ</td></tr>
+      </table>
+    </div>
+  </td></tr>
+
+  <!-- 5 -->
+  <tr><td style="padding:26px 30px 0;">
+    <table cellpadding="0" cellspacing="0"><tr>
+      <td width="26" valign="top"><span style="display:inline-block;width:22px;height:22px;line-height:22px;text-align:center;background:#245091;color:#fff;border-radius:50%;font-size:12px;font-weight:bold;">5</span></td>
+      <td><p style="margin:0;color:#0b1929;font-size:16.5px;font-weight:bold;line-height:22px;">Aprove ou conteste</p></td>
+    </tr></table>
+    <div style="padding-left:26px;">
+      <p style="margin:12px 0 10px;color:#374151;font-size:14px;line-height:1.65;">
+        Ao clicar em <strong>Aprovar</strong>, o Argos mostrará o valor para sua confirmação.
+        Depois da aprovação, não será possível desfazer a ação diretamente no portal.
+      </p>
+      <p style="margin:0;color:#374151;font-size:14px;line-height:1.65;">
+        Se identificar alguma divergência, clique em <strong>Contestar</strong> e descreva o que
+        não corresponde ao esperado. A eFleet analisará o apontamento antes de liberar o valor.
+      </p>
+    </div>
+  </td></tr>
+
+  <!-- 6 -->
+  <tr><td style="padding:26px 30px 0;">
+    <table cellpadding="0" cellspacing="0"><tr>
+      <td width="26" valign="top"><span style="display:inline-block;width:22px;height:22px;line-height:22px;text-align:center;background:#245091;color:#fff;border-radius:50%;font-size:12px;font-weight:bold;">6</span></td>
+      <td><p style="margin:0;color:#0b1929;font-size:16.5px;font-weight:bold;line-height:22px;">Atualize seus dados de pagamento</p></td>
+    </tr></table>
+    <div style="padding-left:26px;">
+      <p style="margin:12px 0 8px;color:#374151;font-size:14px;line-height:1.65;">
+        No botão <strong>Dados bancários</strong>, você poderá cadastrar ou atualizar:
+      </p>
+      <table cellpadding="0" cellspacing="0" width="100%">
+        <tr><td style="padding:2px 0;color:#374151;font-size:14px;">•&nbsp; Banco, agência e conta</td></tr>
+        <tr><td style="padding:2px 0;color:#374151;font-size:14px;">•&nbsp; Tipo de conta</td></tr>
+        <tr><td style="padding:2px 0;color:#374151;font-size:14px;">•&nbsp; Chave PIX</td></tr>
+        <tr><td style="padding:2px 0;color:#374151;font-size:14px;">•&nbsp; Telefone</td></tr>
+        <tr><td style="padding:2px 0;color:#374151;font-size:14px;">•&nbsp; CPF do responsável</td></tr>
+      </table>
+      <p style="margin:12px 0 10px;color:#374151;font-size:14px;line-height:1.65;">
+        Confira os dados antes do primeiro pagamento. Informações incorretas ou desatualizadas
+        podem atrasar o processo.
+      </p>
+      <p style="margin:0;color:#374151;font-size:14px;line-height:1.65;">
+        Você também poderá baixar o extrato da comissão em <strong>PDF</strong> para conferência
+        e apoio na emissão da Nota Fiscal.
+      </p>
+    </div>
+  </td></tr>
+
+  <!-- 7 -->
+  <tr><td style="padding:26px 30px 0;">
+    <table cellpadding="0" cellspacing="0"><tr>
+      <td width="26" valign="top"><span style="display:inline-block;width:22px;height:22px;line-height:22px;text-align:center;background:#245091;color:#fff;border-radius:50%;font-size:12px;font-weight:bold;">7</span></td>
+      <td><p style="margin:0;color:#0b1929;font-size:16.5px;font-weight:bold;line-height:22px;">Acompanhe os avisos</p></td>
+    </tr></table>
+    <div style="padding-left:26px;">
+      <p style="margin:12px 0 10px;color:#374151;font-size:14px;line-height:1.65;">
+        O Argos exibe um aviso vermelho sempre que existir uma comissão aguardando sua aprovação,
+        independentemente do período que estiver sendo consultado.
+      </p>
+      <p style="margin:0 0 8px;color:#374151;font-size:14px;line-height:1.65;">Você também receberá:</p>
+      <table cellpadding="0" cellspacing="0" width="100%">
+        <tr><td style="padding:2px 0;color:#374151;font-size:14px;">•&nbsp; Lembrete diário enquanto houver valor aguardando aprovação</td></tr>
+        <tr><td style="padding:2px 0;color:#374151;font-size:14px;">•&nbsp; Avisos de criação de acesso, redefinição e recuperação de senha</td></tr>
+      </table>
+    </div>
+  </td></tr>
+
+  <tr><td style="padding:26px 30px 0;">
+    <div style="height:1px;background:#e6e9ef;"></div>
+  </td></tr>
+
+  <tr><td style="padding:20px 30px 0;">
+    <p style="margin:0;color:#374151;font-size:14px;line-height:1.65;">
+      Seu acesso é individual e apresenta somente seus clientes e comissões.
+      <strong>Nome, documento, percentual, contrato e situação cadastral são administrados pela eFleet.</strong>
+    </p>
+  </td></tr>
+
+  <tr><td align="center" style="padding:24px 30px 8px;">
+    <a href="https://efleet-comissoes.vercel.app" style="display:inline-block;background:#245091;color:#ffffff;text-decoration:none;font-weight:bold;font-size:15px;padding:14px 34px;border-radius:8px;">Acessar o Argos →</a>
+  </td></tr>
+
+  <tr><td style="padding:16px 30px 26px;">
+    <p style="margin:0;color:#6b7280;font-size:13px;line-height:1.65;">
+      Em caso de dúvida sobre um valor, utilize o botão <strong>Contestar</strong>. Assim, sua
+      solicitação chegará acompanhada de todo o detalhamento necessário para análise.
+    </p>
+  </td></tr>`;
+}
+
+async function enviarManualParceiro(usuarioId: string) {
+  const sb = criarCliente();
+
+  const { data: u } = await sb
+    .from("usuarios").select("nome, perfil").eq("id", usuarioId).maybeSingle();
+  if (!u) return { ok: false, motivo: "usuário não encontrado" };
+  if (u.perfil !== "vendedor" && u.perfil !== "indicador") {
+    return { ok: true, enviado: false, motivo: "manual é só para parceiro" };
+  }
+
+  const { data: jaFoi } = await sb
+    .from("emails_enviados")
+    .select("id")
+    .eq("tipo", "manual_parceiro")
+    .eq("usuario_id", usuarioId)
+    .eq("sucesso", true)
+    .limit(1);
+  if (jaFoi?.length) return { ok: true, enviado: false, motivo: "manual já enviado antes" };
+
+  const { data: conta } = await sb.auth.admin.getUserById(usuarioId);
+  const email = conta?.user?.email;
+  if (!email) return { ok: false, motivo: "sem e-mail" };
+
+  const assunto = "Argos · seu portal de comissões";
+  const resendKey = Deno.env.get("RESEND_API_KEY");
+  let ok = false, erro: string | null = null;
+  if (resendKey) {
+    const remetente = Deno.env.get("RESEND_FROM") ?? "eFleet · Comissões <onboarding@resend.dev>";
+    const r = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${resendKey}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ from: remetente, to: [email], subject: assunto,
+        html: layout(corpoManual(u.nome as string)) }),
+    });
+    ok = r.ok;
+    if (!ok) erro = `Resend ${r.status}: ${(await r.text()).slice(0, 200)}`;
+  } else {
+    erro = "RESEND_API_KEY não configurada";
+  }
+
+  await registrarEmail(sb, {
+    tipo: "manual_parceiro", destinatario: email, assunto,
+    usuario_id: usuarioId, referencia: { perfil: u.perfil, gatilho: "primeiro acesso" },
+    sucesso: ok, erro,
+  });
+
+  return { ok: true, enviado: ok, erro };
+}
+
 // ── CONVITE AVULSO ────────────────────────────────────────────────────────────
 async function convidar(nome: string, email: string, perfil: string, senhaRecebida?: string) {
   const sb = criarCliente();
@@ -477,6 +747,10 @@ Deno.serve(async (req: Request) => {
 
   try {
     const corpo = await req.json();
+
+    if (corpo.manual_para) {
+      return json(await enviarManualParceiro(corpo.manual_para));
+    }
 
     if (corpo.recuperar) {
       return json(await recuperarSenha(corpo.recuperar));

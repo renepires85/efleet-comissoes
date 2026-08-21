@@ -48,8 +48,47 @@ async function notificarParceiro(prestadorId) {
   }
 }
 
-async function notificarParceiroValidacao(prestadorId) {
-  await notificarParceiro(prestadorId);
+// Notificação a partir de uma LINHA de validação — e não do filtro da tela.
+//
+// Dois defeitos morriam aqui juntos:
+//
+// 1. Nenhuma checagem de valor. Notificar uma validação sem comissão manda ao
+//    parceiro "suas comissões de <mês> estão disponíveis" para algo que não
+//    existe. É o mesmo erro do aviso na tela e do lembrete diário, pela
+//    terceira porta — a que a própria gestão abre, achando que está cobrando.
+//
+// 2. O mês vinha de `periodoAtual`, o filtro do dashboard, não da linha
+//    clicada. Notificar uma pendência de julho com a tela em "mês atual"
+//    mandava um e-mail falando de agosto.
+async function notificarParceiroValidacao(validacaoId) {
+  const { data: v, error } = await sb.from('validacoes_mensais')
+    .select('prestador_id, periodo_inicio, periodo_fim, prestadores(nome)')
+    .eq('id', validacaoId).single();
+  if (error || !v) { alert('✗ Não foi possível ler a validação: ' + (error?.message || 'não encontrada')); return; }
+
+  const { data: coms } = await sb.from('comissoes')
+    .select('comissao_bruta')
+    .eq('prestador_id', v.prestador_id)
+    .eq('periodo_inicio', v.periodo_inicio)
+    .eq('status', 'calculada');
+
+  const total = (coms || []).reduce((s, c) => s + Number(c.comissao_bruta || 0), 0);
+  const periodo = formatPeriodo(v.periodo_inicio, v.periodo_fim);
+
+  if (!(total > 0)) {
+    alert(`Esta validação de ${periodo} não tem comissão calculada — não há o que o parceiro aprovar.\n\n` +
+          `Notificar mandaria um e-mail dizendo que a comissão está disponível, para um valor que não existe. ` +
+          `Confira o fechamento do período antes de cobrar a aprovação.`);
+    return;
+  }
+
+  if (!confirm(`Enviar e-mail para ${v.prestadores?.nome || 'o parceiro'} sobre ${periodo} (${fmtR(total)})?`)) return;
+  try {
+    await notificarEmail(v.prestador_id, periodo);
+    alert('✓ E-mail enviado com sucesso!');
+  } catch (e) {
+    alert('✗ Erro: ' + e.message);
+  }
 }
 
 // ── NOTIFICAR GESTÃO (nova solicitação) ───────────────────────────────────────

@@ -223,7 +223,7 @@ async function carregarValidacoesGestao() {
     const acoes = podePagar
       ? `<button class="btn btn-teal btn-sm" onclick="abrirModalPagamento('${v.id}')">💰 Pagar</button>`
       : podeNotificar
-      ? `<button class="btn btn-ghost btn-sm" onclick="notificarParceiroValidacao('${v.prestador_id}')">📧 Notificar</button>`
+      ? `<button class="btn btn-ghost btn-sm" onclick="notificarParceiroValidacao('${v.id}')">📧 Notificar</button>`
       : '';
  
     return `<tr>
@@ -318,17 +318,45 @@ async function confirmarAcoesLote() {
     const { data: vals } = await sb.from('validacoes_mensais')
       .select('*,prestadores(nome,email)')
       .in('id', paraNotificar);
-    let ok = 0, err = 0;
-    for (const v of (vals || [])) {
-      if (v?.prestadores?.email) {
-        try {
-          await notificarEmail(v.prestador_id, formatPeriodo(v.periodo_inicio, v.periodo_fim));
-          ok++;
-          await new Promise(r => setTimeout(r, 500));
-        } catch { err++; }
-      }
+
+    // Mesma regra do envio individual: sem comissão calculada não há o que o
+    // parceiro aprovar, e o e-mail diria que a comissão está disponível para um
+    // valor que não existe. No lote o estrago é maior — um clique alcança
+    // todos de uma vez.
+    const { data: coms } = await sb.from('comissoes')
+      .select('prestador_id,periodo_inicio,comissao_bruta')
+      .eq('status', 'calculada')
+      .in('prestador_id', [...new Set((vals || []).map(v => v.prestador_id))]);
+
+    const valorPor = new Map();
+    (coms || []).forEach(c => {
+      const k = `${c.prestador_id}|${c.periodo_inicio}`;
+      valorPor.set(k, (valorPor.get(k) || 0) + Number(c.comissao_bruta || 0));
+    });
+
+    const comValor = (vals || []).filter(v => (valorPor.get(`${v.prestador_id}|${v.periodo_inicio}`) || 0) > 0);
+    const semValor = (vals || []).length - comValor.length;
+
+    let ok = 0, err = 0, semEmail = 0;
+    for (const v of comValor) {
+      if (!v?.prestadores?.email) { semEmail++; continue; }
+      try {
+        await notificarEmail(v.prestador_id, formatPeriodo(v.periodo_inicio, v.periodo_fim));
+        ok++;
+        await new Promise(r => setTimeout(r, 500));
+      } catch { err++; }
     }
-    alert(`Notificações enviadas: ${ok} OK${err > 0 ? `, ${err} com erro` : ''}.`);
+
+    alert(
+      `Notificações enviadas: ${ok} OK` +
+      (err > 0 ? `, ${err} com erro` : '') +
+      (semEmail > 0 ? `, ${semEmail} sem e-mail cadastrado` : '') +
+      (semValor > 0
+        ? `\n\n⚠ ${semValor} não ${semValor === 1 ? 'foi notificada' : 'foram notificadas'}: ` +
+          `${semValor === 1 ? 'não tem' : 'não têm'} comissão calculada no período. ` +
+          `Confira o fechamento antes de cobrar a aprovação.`
+        : '')
+    );
     await carregarValidacoesGestao();
   }
 }

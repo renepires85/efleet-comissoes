@@ -157,7 +157,7 @@ function layout(conteudo: string) {
 async function registrarEmail(sb: any, registro: {
   tipo: string; destinatario: string; assunto?: string;
   prestador_id?: string | null; usuario_id?: string | null;
-  referencia?: unknown; sucesso: boolean; erro?: string | null;
+  referencia?: unknown; sucesso: boolean; erro?: string | null; provedor_id?: string | null;
 }) {
   try {
     await sb.from("emails_enviados").insert(registro);
@@ -168,7 +168,7 @@ async function registrarEmail(sb: any, registro: {
 
 async function enviarEmailAcesso(nome: string, email: string, senha: string, papel: string, novo: boolean) {
   const resendKey = Deno.env.get("RESEND_API_KEY");
-  if (!resendKey) return false;
+  if (!resendKey) return { ok: false, id: null, erro: "RESEND_API_KEY não configurada" };
   const remetente = Deno.env.get("RESEND_FROM") ?? "eFleet · Comissões <onboarding@resend.dev>";
   const resp = await fetch("https://api.resend.com/emails", {
     method: "POST",
@@ -180,7 +180,13 @@ async function enviarEmailAcesso(nome: string, email: string, senha: string, pap
       html: layout(corpoAcesso(nome, email, senha, papel, novo)),
     }),
   });
-  return resp.ok;
+  // Devolve o id do Resend, não só sucesso/falha: sem ele não há como rastrear
+  // depois "o que aconteceu com AQUELE e-mail". Custou uma investigação — um
+  // parceiro disse não ter recebido, o registro dizia enviado, e faltava
+  // exatamente o id para perguntar ao provedor.
+  if (!resp.ok) return { ok: false, id: null, erro: `Resend ${resp.status}: ${(await resp.text()).slice(0, 200)}` };
+  const corpo = await resp.json().catch(() => ({}));
+  return { ok: true, id: (corpo as { id?: string }).id ?? null, erro: null };
 }
 
 
@@ -346,18 +352,18 @@ async function enviarAcessoPrestador(prestadorId: string) {
     if (errLink) throw new Error("Erro ao vincular: " + errLink.message);
   }
 
-  let emailEnviado = false;
+  let envio: { ok: boolean; id: string | null; erro: string | null } = { ok: false, id: null, erro: "não tentado" };
   try {
-    emailEnviado = await enviarEmailAcesso(p.nome, email, senha, papel, novo);
-  } catch (_) { /* acesso já existe; o que falhou foi o aviso */ }
+    envio = await enviarEmailAcesso(p.nome, email, senha, papel, novo);
+  } catch (e) { envio = { ok: false, id: null, erro: e instanceof Error ? e.message : String(e) }; }
+  const emailEnviado = envio.ok;
 
   await registrarEmail(sb, {
     tipo: novo ? "acesso_criado" : "acesso_reenviado", destinatario: email,
     assunto: novo ? "Seu acesso ao ARGOS · Comissões" : "Nova senha de acesso ao ARGOS · Comissões",
     prestador_id: p.id as string, usuario_id: userId,
     referencia: { perfil: papel, origem: "prestador" },
-    sucesso: emailEnviado,
-    erro: emailEnviado ? null : "Resend não confirmou o envio",
+    sucesso: emailEnviado, erro: envio.erro, provedor_id: envio.id,
   });
 
   return {
@@ -394,17 +400,17 @@ async function enviarAcessoUsuario(usuarioId: string) {
     .from("usuarios").update({ senha_provisoria: true }).eq("id", usuarioId);
   if (errFlag) throw new Error("Erro ao marcar senha provisória: " + errFlag.message);
 
-  let emailEnviado = false;
+  let envio: { ok: boolean; id: string | null; erro: string | null } = { ok: false, id: null, erro: "não tentado" };
   try {
-    emailEnviado = await enviarEmailAcesso(u.nome as string, email, senha, u.perfil as string, false);
-  } catch (_) { /* senha já trocada; o que falhou foi o aviso */ }
+    envio = await enviarEmailAcesso(u.nome as string, email, senha, u.perfil as string, false);
+  } catch (e) { envio = { ok: false, id: null, erro: e instanceof Error ? e.message : String(e) }; }
+  const emailEnviado = envio.ok;
 
   await registrarEmail(sb, {
     tipo: "acesso_reenviado", destinatario: email,
     assunto: "Nova senha de acesso ao ARGOS · Comissões",
     usuario_id: usuarioId, referencia: { perfil: u.perfil, origem: "usuario_gestao" },
-    sucesso: emailEnviado,
-    erro: emailEnviado ? null : "Resend não confirmou o envio",
+    sucesso: emailEnviado, erro: envio.erro, provedor_id: envio.id,
   });
 
   return {
@@ -722,17 +728,17 @@ async function convidar(nome: string, email: string, perfil: string, senhaRecebi
     }
   }
 
-  let emailEnviado = false;
+  let envio: { ok: boolean; id: string | null; erro: string | null } = { ok: false, id: null, erro: "não tentado" };
   try {
-    emailEnviado = await enviarEmailAcesso(nome, email, senha, perfil, true);
-  } catch (_) { /* acesso já criado; o convite é o que falhou */ }
+    envio = await enviarEmailAcesso(nome, email, senha, perfil, true);
+  } catch (e) { envio = { ok: false, id: null, erro: e instanceof Error ? e.message : String(e) }; }
+  const emailEnviado = envio.ok;
 
   await registrarEmail(sb, {
     tipo: "acesso_criado", destinatario: email,
     assunto: "Seu acesso ao ARGOS · Comissões",
     usuario_id: userId, referencia: { perfil, origem: "convite" },
-    sucesso: emailEnviado,
-    erro: emailEnviado ? null : "Resend não confirmou o envio",
+    sucesso: emailEnviado, erro: envio.erro, provedor_id: envio.id,
   });
 
   return {

@@ -16,6 +16,14 @@ const corsHeaders = {
 };
 
 const APP_URL = "https://efleet-comissoes.vercel.app";
+
+type PendenteRow = {
+  id: string;
+  periodo_inicio: string;
+  periodo_fim: string;
+  criado_em: string;
+  prestadores?: { id: string; nome: string; email: string | null; ativo: boolean } | null;
+};
 const GESTAO_EMAIL = "argosefleet@gmail.com";
 
 function json(payload: unknown, status = 200) {
@@ -45,6 +53,29 @@ function layout(conteudo: string) {
 
 function botao(texto: string) {
   return `<a href="${APP_URL}" style="display:inline-block;background:#245091;color:#ffffff;text-decoration:none;font-weight:bold;font-size:14px;padding:12px 24px;border-radius:8px;">${texto} →</a>`;
+}
+
+// Registra o envio — inclusive a falha. Um e-mail que não sai é
+// indistinguível de um que sai quando nada fica guardado, e é justamente o que
+// não sai que precisa de ação. Nunca derruba o fluxo: falhar em ANOTAR que o
+// e-mail saiu não pode impedir que ele saia.
+// deno-lint-ignore no-explicit-any
+async function registrarEmail(supabase: any, registro: {
+  tipo: string;
+  destinatario: string;
+  assunto?: string;
+  prestador_id?: string | null;
+  usuario_id?: string | null;
+  referencia?: unknown;
+  sucesso: boolean;
+  erro?: string | null;
+  provedor_id?: string | null;
+}) {
+  try {
+    await supabase.from("emails_enviados").insert(registro);
+  } catch (e) {
+    console.error("registrarEmail falhou:", e instanceof Error ? e.message : String(e));
+  }
 }
 
 async function enviarResend(resendKey: string, to: string[], subject: string, html: string) {
@@ -108,6 +139,12 @@ serve(async (req) => {
         </td></tr>`),
       );
 
+      await registrarEmail(supabase, {
+        tipo: "comissao_disponivel", destinatario: prestador.email,
+        assunto: `eFleet · Suas comissões de ${periodo} estão disponíveis`,
+        prestador_id, referencia: { periodo }, sucesso: true, provedor_id: id,
+      });
+
       return json({ ok: true, enviados: 1, email: prestador.email, id });
     }
 
@@ -117,6 +154,13 @@ serve(async (req) => {
       if (!solicitacao?.nome || !solicitacao?.email || !solicitacao?.tipo) {
         return json({ ok: false, error: "nome, email e tipo são obrigatórios" }, 400);
       }
+
+      // Este ramo não precisava de banco até agora — só de e-mail. O cliente
+      // entra aqui apenas para registrar o envio.
+      const supabase = createClient(
+        Deno.env.get("SUPABASE_URL")!,
+        Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+      );
 
       const tipoLabel = solicitacao.tipo === "gestao" ? "Gestão" : "Parceiro Comercial";
       const linha = (r: string, v: string) =>
@@ -138,6 +182,13 @@ serve(async (req) => {
         </td></tr>`),
       );
 
+      await registrarEmail(supabase, {
+        tipo: "solicitacao_acesso", destinatario: GESTAO_EMAIL,
+        assunto: `eFleet · Nova solicitação de acesso — ${solicitacao.nome}`,
+        referencia: { solicitante: solicitacao.nome, email: solicitacao.email, tipo: solicitacao.tipo },
+        sucesso: true, provedor_id: id,
+      });
+
       return json({ ok: true, enviados: 1, id });
     }
 
@@ -150,8 +201,14 @@ serve(async (req) => {
     // junho parado desde 16/07, quase um mês, porque ninguém foi atrás dele.
     //
     // Só parceiro ATIVO recebe: o inativo não consegue entrar para aprovar, e
-    // cobrar ação de quem não tem acesso é ruído. Validação sem valor a pagar
-    // já não existe mais — a trava criada hoje impede que nasça.
+    // cobrar ação de quem não tem acesso é ruído.
+    //
+    // E só pendência COM VALOR A PAGAR. Havia aqui um comentário afirmando que
+    // validação sem valor "já não existe mais, a trava impede que nasça". A
+    // trava existe e funciona, mas vale só na criação: não alcança linha que
+    // entrou por outro caminho. Era suposição no lugar de checagem, e o custo
+    // apareceu — seis validações de agosto, sem comissão nenhuma, cobraram
+    // aprovação por e-mail de um mês que nem tinha fechado.
     if (action === "lembrete_parceiros") {
       const supabase = createClient(
         Deno.env.get("SUPABASE_URL")!,
@@ -167,17 +224,43 @@ serve(async (req) => {
       if (error) return json({ ok: false, error: error.message }, 400);
       if (!pendentes?.length) return json({ ok: true, enviados: 0, motivo: "nenhuma pendência" });
 
+      // Cruza com as comissões: sem valor calculado no período não há o que
+      // aprovar. Cobrar aprovação de zero gasta a confiança do parceiro no
+      // aviso — na próxima vez, com dinheiro de verdade parado, ele já não abre.
+      const ids = [...new Set((pendentes as unknown as PendenteRow[]).map(v => v.prestadores?.id).filter(Boolean))];
+      const { data: comissoes } = await supabase
+        .from("comissoes")
+        .select("prestador_id, periodo_inicio, comissao_bruta")
+        .eq("status", "calculada")
+        .in("prestador_id", ids as string[]);
+
+      const valorPor = new Map<string, number>();
+      for (const c of (comissoes ?? []) as Array<Record<string, unknown>>) {
+        const k = `${c.prestador_id}|${c.periodo_inicio}`;
+        valorPor.set(k, (valorPor.get(k) ?? 0) + Number(c.comissao_bruta ?? 0));
+      }
+
+      const comValor = (pendentes as unknown as PendenteRow[]).filter(
+        v => (valorPor.get(`${v.prestadores?.id}|${v.periodo_inicio}`) ?? 0) > 0,
+      );
+      // `ignoradas` volta na resposta de propósito: linha pendente sem valor é
+      // anomalia, e some sem deixar rastro se ninguém contar.
+      const ignoradas = pendentes.length - comValor.length;
+      if (!comValor.length) {
+        return json({ ok: true, enviados: 0, motivo: "nenhuma pendência com valor a pagar", ignoradas });
+      }
+
       const resendKey = Deno.env.get("RESEND_API_KEY");
       if (!resendKey) return json({ ok: false, error: "RESEND_API_KEY não configurada" }, 400);
 
       // Agrupa por parceiro: quem tem três meses parados recebe UM e-mail, não três.
-      const porParceiro = new Map<string, { nome: string; email: string; periodos: string[]; desde: string }>();
-      for (const v of pendentes as any[]) {
+      const porParceiro = new Map<string, { id: string; nome: string; email: string; periodos: string[]; desde: string }>();
+      for (const v of comValor) {
         const p = v.prestadores;
         if (!p?.email) continue;
         const mes = new Date(v.periodo_inicio + "T12:00:00")
           .toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
-        const atual = porParceiro.get(p.id) ?? { nome: p.nome, email: p.email, periodos: [], desde: v.criado_em };
+        const atual = porParceiro.get(p.id) ?? { id: p.id, nome: p.nome, email: p.email!, periodos: [], desde: v.criado_em };
         atual.periodos.push(mes);
         if (v.criado_em < atual.desde) atual.desde = v.criado_em;
         porParceiro.set(p.id, atual);
@@ -202,13 +285,29 @@ serve(async (req) => {
           </div>`;
         // enviarResend lança em erro; um parceiro com e-mail inválido não pode
         // impedir que os outros recebam.
+        const assunto = "Você tem comissão para aprovar";
         try {
-          await enviarResend(resendKey, [p.email], "Você tem comissão para aprovar", html);
+          const id = await enviarResend(resendKey, [p.email], assunto, html);
           enviados++;
-        } catch (_) { semEmail++; }
+          await registrarEmail(supabase, {
+            tipo: "lembrete_parceiro", destinatario: p.email, assunto,
+            prestador_id: p.id, referencia: { periodos: p.periodos, dias_parado: dias },
+            sucesso: true, provedor_id: id,
+          });
+        } catch (e) {
+          semEmail++;
+          await registrarEmail(supabase, {
+            tipo: "lembrete_parceiro", destinatario: p.email, assunto,
+            prestador_id: p.id, referencia: { periodos: p.periodos, dias_parado: dias },
+            sucesso: false, erro: e instanceof Error ? e.message : String(e),
+          });
+        }
       }
 
-      return json({ ok: true, enviados, falhas: semEmail, parceiros: porParceiro.size });
+      // `ignoradas` sai na resposta de propósito: pendência sem valor é anomalia
+      // na base, e uma anomalia que o filtro resolve em silêncio nunca é
+      // investigada. O cron guarda o número; a gestão vê que existe.
+      return json({ ok: true, enviados, falhas: semEmail, parceiros: porParceiro.size, ignoradas });
     }
 
     if (action === "relatorio_semanal") {
@@ -270,7 +369,7 @@ serve(async (req) => {
         ? `<p style="margin:0;color:#6b7280;font-size:13px;">✓ Nenhuma validação pendente ou contestada.</p>`
         : `<table width="100%" cellpadding="0" cellspacing="0">
              <tr><th style="text-align:left;color:#6b7280;font-size:11px;text-transform:uppercase;padding-bottom:6px;">Parceiro</th><th style="text-align:left;color:#6b7280;font-size:11px;text-transform:uppercase;padding-bottom:6px;">Período</th><th style="text-align:center;color:#6b7280;font-size:11px;text-transform:uppercase;padding-bottom:6px;">Status</th><th style="text-align:right;color:#6b7280;font-size:11px;text-transform:uppercase;padding-bottom:6px;">Há</th></tr>
-             ${validacoesPendentes.map(linhaValidacao).join("")}
+             ${(validacoesPendentes as unknown as Parameters<typeof linhaValidacao>[0][]).map(linhaValidacao).join("")}
            </table>`;
 
       const hoje = new Date().toLocaleDateString("pt-BR");
@@ -296,6 +395,20 @@ serve(async (req) => {
           : "eFleet · Nenhuma pendência esta semana",
         html,
       );
+
+      for (const e of emails) {
+        await registrarEmail(supabase, {
+          tipo: "relatorio_semanal", destinatario: e,
+          assunto: totalPend > 0
+            ? `eFleet · ${totalPend} pendência(s) aguardando você`
+            : "eFleet · Nenhuma pendência esta semana",
+          referencia: {
+            fechamentos: fechamentosPendentes?.length ?? 0,
+            validacoes: validacoesPendentes?.length ?? 0,
+          },
+          sucesso: true, provedor_id: id,
+        });
+      }
 
       return json({ ok: true, enviados: emails.length, fechamentos: fechamentosPendentes?.length ?? 0, validacoes: validacoesPendentes?.length ?? 0, id });
     }

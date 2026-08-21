@@ -415,7 +415,19 @@ async function carregarExtratoPeriodo(pid) {
   const periodoValidacao = vm ? formatPeriodo(vm.periodo_inicio, vm.periodo_fim) : '—';
   const totalPeriodo = ext.filter(e => e.status === 'calculada').reduce((s, e) => s + parseFloat(e.comissao_bruta || 0), 0);
 
-  if (vm) {
+  // Pendência sem valor não vira pedido de aprovação.
+  //
+  // `totalPeriodo` já era calculado aqui e não era usado para nada: o card
+  // aparecia por existir a linha de validação, não por haver o que aprovar. Foi
+  // assim que o parceiro chegou a ver "R$ 0" no topo e "Ação necessária: aprove
+  // ou conteste" logo abaixo, para um mês que nem tinha fechado.
+  //
+  // Só a PENDENTE é escondida. Aprovado, contestado e pago continuam visíveis
+  // mesmo com zero, porque aí o card é histórico — conta o que aconteceu, não
+  // cobra ação de ninguém.
+  const pedeAcaoSemValor = vm && vm.status === 'pendente' && !(totalPeriodo > 0);
+
+  if (vm && !pedeAcaoSemValor) {
     currentValidacaoId = vm.id;
     card.style.display = 'block';
     card.className = `validacao-card ${vm.status}`;

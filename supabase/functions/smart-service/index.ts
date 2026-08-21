@@ -150,6 +150,22 @@ function layout(conteudo: string) {
 </body></html>`;
 }
 
+// Registra o envio — inclusive a falha. Nunca derruba o fluxo: falhar em
+// ANOTAR que o e-mail saiu não pode impedir que ele saia, nem desfazer um
+// acesso que já foi criado.
+// deno-lint-ignore no-explicit-any
+async function registrarEmail(sb: any, registro: {
+  tipo: string; destinatario: string; assunto?: string;
+  prestador_id?: string | null; usuario_id?: string | null;
+  referencia?: unknown; sucesso: boolean; erro?: string | null;
+}) {
+  try {
+    await sb.from("emails_enviados").insert(registro);
+  } catch (e) {
+    console.error("registrarEmail falhou:", e instanceof Error ? e.message : String(e));
+  }
+}
+
 async function enviarEmailAcesso(nome: string, email: string, senha: string, papel: string, novo: boolean) {
   const resendKey = Deno.env.get("RESEND_API_KEY");
   if (!resendKey) return false;
@@ -256,11 +272,21 @@ async function recuperarSenha(email: string) {
       }),
     });
     // A resposta ao usuário não pode mudar (senão vira verificador de e-mails),
-    // mas a falha não pode sumir: sem este log, um e-mail de recuperação que
-    // não sai fica indistinguível de um que saiu, para nós inclusive.
-    if (!envio.ok) {
-      console.error(`recuperar_senha: Resend ${envio.status} para ${alvo}: ${(await envio.text()).slice(0, 200)}`);
-    }
+    // mas a falha não pode sumir: sem este registro, um e-mail de recuperação
+    // que não sai fica indistinguível de um que saiu, para nós inclusive.
+    //
+    // O CÓDIGO nunca entra em `referencia` — quem tem acesso à tabela poderia
+    // redefinir a senha de qualquer pessoa lendo o histórico. Guardamos que o
+    // e-mail saiu, não o que ele continha.
+    const erroEnvio = envio.ok ? null : `Resend ${envio.status}: ${(await envio.text()).slice(0, 200)}`;
+    if (erroEnvio) console.error(`recuperar_senha para ${alvo}: ${erroEnvio}`);
+
+    await registrarEmail(sb, {
+      tipo: "recuperacao_senha", destinatario: alvo,
+      assunto: "Seu código para redefinir a senha do ARGOS",
+      usuario_id: existe as string,
+      sucesso: envio.ok, erro: erroEnvio,
+    });
   }
   return resposta;
 }
@@ -325,6 +351,15 @@ async function enviarAcessoPrestador(prestadorId: string) {
     emailEnviado = await enviarEmailAcesso(p.nome, email, senha, papel, novo);
   } catch (_) { /* acesso já existe; o que falhou foi o aviso */ }
 
+  await registrarEmail(sb, {
+    tipo: novo ? "acesso_criado" : "acesso_reenviado", destinatario: email,
+    assunto: novo ? "Seu acesso ao ARGOS · Comissões" : "Nova senha de acesso ao ARGOS · Comissões",
+    prestador_id: p.id as string, usuario_id: userId,
+    referencia: { perfil: papel, origem: "prestador" },
+    sucesso: emailEnviado,
+    erro: emailEnviado ? null : "Resend não confirmou o envio",
+  });
+
   return {
     ok: true, nome: p.nome, email, novo, user_id: userId,
     email_enviado: emailEnviado,
@@ -363,6 +398,14 @@ async function enviarAcessoUsuario(usuarioId: string) {
   try {
     emailEnviado = await enviarEmailAcesso(u.nome as string, email, senha, u.perfil as string, false);
   } catch (_) { /* senha já trocada; o que falhou foi o aviso */ }
+
+  await registrarEmail(sb, {
+    tipo: "acesso_reenviado", destinatario: email,
+    assunto: "Nova senha de acesso ao ARGOS · Comissões",
+    usuario_id: usuarioId, referencia: { perfil: u.perfil, origem: "usuario_gestao" },
+    sucesso: emailEnviado,
+    erro: emailEnviado ? null : "Resend não confirmou o envio",
+  });
 
   return {
     ok: true, nome: u.nome, email, novo: false, user_id: usuarioId,
@@ -413,6 +456,14 @@ async function convidar(nome: string, email: string, perfil: string, senhaRecebi
   try {
     emailEnviado = await enviarEmailAcesso(nome, email, senha, perfil, true);
   } catch (_) { /* acesso já criado; o convite é o que falhou */ }
+
+  await registrarEmail(sb, {
+    tipo: "acesso_criado", destinatario: email,
+    assunto: "Seu acesso ao ARGOS · Comissões",
+    usuario_id: userId, referencia: { perfil, origem: "convite" },
+    sucesso: emailEnviado,
+    erro: emailEnviado ? null : "Resend não confirmou o envio",
+  });
 
   return {
     ok: true, user_id: userId, nome, email, novo: true,

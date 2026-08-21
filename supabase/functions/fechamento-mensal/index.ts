@@ -30,6 +30,28 @@ const DATABASE_ID = 2;
 // a explicação provável é ETL pela metade, não queda de operação.
 const LIMITE_COMPLETUDE = 0.4;
 
+// Avisa a gestão do resultado — inclusive quando a resposta é "adiei".
+// Sem isso a rotina roda às 03h e não conta a ninguém o que fez, e um silêncio
+// que significa "deu certo" fica indistinguível de um que significa "não
+// fechei". Nunca derruba o fechamento: falhar em AVISAR que fechou não pode
+// desfazer o fechamento.
+async function avisarGestao(resultado: unknown) {
+  try {
+    const anon = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
+    await fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/clever-handler`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        apikey: anon,
+        Authorization: `Bearer ${anon}`,
+      },
+      body: JSON.stringify({ action: "fechamento_concluido", resultado }),
+    });
+  } catch (e) {
+    console.error("avisarGestao falhou:", e instanceof Error ? e.message : String(e));
+  }
+}
+
 function json(payload: unknown, status = 200) {
   return new Response(JSON.stringify(payload), {
     status,
@@ -123,13 +145,15 @@ serve(async (req) => {
       const [c] = await metabase(apiKey, consultaCompletude(ini, fim)) as Array<Record<string, number>>;
       const razao = c && c.media_diaria > 0 ? c.ultimo_dia / c.media_diaria : 0;
       if (razao < LIMITE_COMPLETUDE) {
-        return json({
+        const adiado = {
           ok: false, adiado: true, periodo: ini.slice(0, 7),
           motivo: "dados do último dia do mês parecem incompletos",
           ultimo_dia: c?.ultimo_dia ?? 0,
           media_diaria: Math.round(c?.media_diaria ?? 0),
           razao: Number(razao.toFixed(2)),
-        });
+        };
+        await avisarGestao(adiado);
+        return json(adiado);
       }
     }
 
@@ -142,10 +166,18 @@ serve(async (req) => {
     const { data, error } = await supabase.rpc("executar_fechamento_mensal", {
       p_dados: linhas, p_periodo_inicio: ini, p_origem: "automatico",
     });
-    if (error) return json({ ok: false, error: error.message }, 400);
+    if (error) {
+      const falha = { ok: false, periodo: ini.slice(0, 7), error: error.message };
+      await avisarGestao(falha);
+      return json(falha, 400);
+    }
 
-    return json({ ...data, clientes_lidos: linhas.length });
+    const resultado = { ...data, periodo: ini.slice(0, 7), clientes_lidos: linhas.length };
+    await avisarGestao(resultado);
+    return json(resultado);
   } catch (err) {
-    return json({ ok: false, error: err instanceof Error ? err.message : String(err) }, 400);
+    const falha = { ok: false, error: err instanceof Error ? err.message : String(err) };
+    await avisarGestao(falha);
+    return json(falha, 400);
   }
 });

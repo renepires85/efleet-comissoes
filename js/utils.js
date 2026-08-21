@@ -60,6 +60,7 @@ function switchNav(tab) {
   if (tab === 'comissoes')    { document.getElementById('view-gestao').classList.add('active');        carregarGestao(); }
   else if (tab === 'arquivos')     { document.getElementById('view-arquivos').classList.add('active');      carregarArquivos(); }
   else if (tab === 'checkpoints')  { document.getElementById('view-checkpoints').classList.add('active');   carregarCheckpoints(); }
+  else if (tab === 'previas')      { document.getElementById('view-previas').classList.add('active');      carregarPrevias(); carregarCarimboPrevia(); }
   else if (tab === 'prestadores')  { document.getElementById('view-prestadores').classList.add('active');   carregarPrestadores(); carregarAcessosGestao(); }
   else if (tab === 'solicitacoes') { document.getElementById('view-solicitacoes').classList.add('active');  carregarSolicitacoes(); }
 }

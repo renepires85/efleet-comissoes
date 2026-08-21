@@ -206,7 +206,12 @@ function normalizarLinha(r) {
 }
 
 function abrirFichaCliente(cnpj, origem = 'previa') {
-  const fonte  = origem === 'previa' ? previaLinhas : extratoLinhas;
+  // 'gestao-previa' vem da tela de Prévias do mês, que tem a própria cópia das
+  // linhas. Sem este ramo o clique caía em `extratoLinhas` — vazio fora da tela
+  // do parceiro — e a ficha simplesmente não abria, sem erro nenhum.
+  const fonte = origem === 'previa'        ? previaLinhas
+              : origem === 'gestao-previa' ? previasCache
+              : extratoLinhas;
   const linhas = fonte.filter(r => r.cliente_cnpj === cnpj).map(normalizarLinha);
   if (!linhas.length) return;
 

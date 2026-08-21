@@ -11,6 +11,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('nav-comissoes').addEventListener('click', () => switchNav('comissoes'));
   document.getElementById('nav-arquivos').addEventListener('click', () => switchNav('arquivos'));
   document.getElementById('nav-checkpoints').addEventListener('click', () => switchNav('checkpoints'));
+  document.getElementById('nav-previas').addEventListener('click', () => switchNav('previas'));
   document.getElementById('nav-prestadores').addEventListener('click', () => switchNav('prestadores'));
   document.getElementById('nav-solicitacoes').addEventListener('click', () => switchNav('solicitacoes'));
 
@@ -83,6 +84,10 @@ document.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('cp-f-status').addEventListener('change', renderCpDetalhe);
   document.getElementById('cp-f-erro').addEventListener('change', renderCpDetalhe);
   document.getElementById('btn-cp-limpar').addEventListener('click', () => limparFiltrosCp());
+
+  // Prévias do mês
+  document.getElementById('pv-f-busca').addEventListener('input', renderPrevias);
+  document.getElementById('pv-f-valor').addEventListener('change', renderPrevias);
 
   // Cadastros
   document.getElementById('pr-f-busca').addEventListener('input', renderPrestadores);

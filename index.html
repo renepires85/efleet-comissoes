@@ -77,6 +77,7 @@
     <button class="nav-btn active" id="nav-comissoes">Comissões</button>
     <button class="nav-btn" id="nav-arquivos">Arquivos</button>
     <button class="nav-btn" id="nav-checkpoints">Checkpoints</button>
+    <button class="nav-btn" id="nav-previas">Prévias do mês</button>
     <button class="nav-btn" id="nav-prestadores">Cadastros</button>
     <button class="nav-btn" id="nav-solicitacoes">Pedidos de Acesso</button>
   </div>
@@ -307,6 +308,42 @@
       </div>
     </div>
 
+    <!-- VIEW: PRÉVIAS DO MÊS -->
+    <div class="view" id="view-previas">
+      <div class="periodo-bar">
+        <h1>Prévias do mês <span id="pv-atualizado">—</span></h1>
+      </div>
+
+      <!-- O aviso fica no topo e não em nota de rodapé: a diferença entre
+           prévia e fechamento é a coisa mais importante desta tela. -->
+      <div class="status-box status-warn" style="display:block;margin-top:12px;">
+        <strong>Valores estimados.</strong> Vêm da carga diária do Data Lake e mudam até o fim do mês.
+        Comissão de cliente bloqueado, inadimplente ou cancelado não é paga enquanto a situação não se regularizar.
+      </div>
+
+      <div class="kpi-grid kpi-4" style="margin-top:16px;">
+        <div class="kpi-card kpi-blue"><div class="kpi-label">Total calculado</div><div class="kpi-value val-blue" id="pv-total">—</div><div class="kpi-sub">estimativa do mês</div></div>
+        <div class="kpi-card kpi-green"><div class="kpi-label">Valor validado</div><div class="kpi-value val-green" id="pv-validado">—</div><div class="kpi-sub">total − bloqueado</div></div>
+        <div class="kpi-card kpi-yellow"><div class="kpi-label">Valor bloqueado</div><div class="kpi-value val-yellow" id="pv-bloqueado">—</div><div class="kpi-sub">cliente irregular</div></div>
+        <div class="kpi-card kpi-blue"><div class="kpi-label">Parceiros</div><div class="kpi-value val-blue" id="pv-parceiros">—</div><div class="kpi-sub">com prévia no mês</div></div>
+      </div>
+
+      <div class="section">
+        <div class="section-header"><div><div class="section-title">Por parceiro</div><div class="section-sub">Clique no + para ver os clientes de cada um.</div></div></div>
+        <div style="display:flex;gap:14px;flex-wrap:wrap;align-items:center;padding:14px 22px;border-bottom:1px solid rgba(255,255,255,0.06);">
+          <input class="input" id="pv-f-busca" placeholder="Buscar parceiro..." style="width:260px;">
+          <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--efl-gray-300);cursor:pointer;">
+            <input type="checkbox" id="pv-f-valor" checked style="width:16px;height:16px;cursor:pointer;accent-color:var(--efl-green-500);">
+            Só quem tem valor no mês
+          </label>
+        </div>
+        <div class="table-wrap"><table>
+          <thead><tr><th style="width:44px;"></th><th>Parceiro</th><th>Tipo</th><th>Clientes</th><th>Calculado</th><th>Bloqueado</th><th>Validado</th></tr></thead>
+          <tbody id="tbody-previas"><tr><td colspan="7" class="loading">Carregando...</td></tr></tbody>
+        </table></div>
+      </div>
+    </div>
+
     <!-- VIEW: PRESTADORES -->
     <div class="view" id="view-prestadores">
       <div class="periodo-bar">
@@ -341,8 +378,8 @@
           <button class="btn btn-ghost btn-sm" id="btn-pr-limpar">✕ Limpar filtros</button>
         </div>
         <div class="table-wrap"><table>
-          <thead><tr><th>Nome</th><th>Tipo</th><th>Documento</th><th>E-mail</th><th>Banco</th><th>PIX</th><th>Status</th><th></th></tr></thead>
-          <tbody id="tbody-prestadores"><tr><td colspan="8" class="loading">Carregando...</td></tr></tbody>
+          <thead><tr><th>Nome</th><th>Tipo</th><th>Documento</th><th>E-mail</th><th>Banco</th><th>PIX</th><th>Último acesso</th><th>Status</th><th></th></tr></thead>
+          <tbody id="tbody-prestadores"><tr><td colspan="9" class="loading">Carregando...</td></tr></tbody>
         </table></div>
       </div>
 
@@ -571,6 +608,7 @@
 <script src="js/gestao.js"></script>
 <script src="js/vendedor.js"></script>
 <script src="js/uploads.js"></script>
+<script src="js/previas.js"></script>
 <script src="js/prestadores.js"></script>
 <script src="js/solicitacoes.js"></script>
 <script src="js/app.js"></script>

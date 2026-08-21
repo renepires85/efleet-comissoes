@@ -192,6 +192,91 @@ serve(async (req) => {
       return json({ ok: true, enviados: 1, id });
     }
 
+    // ─── Gestão: resultado do fechamento mensal ───
+    // Chamada pela própria fechamento-mensal ao terminar. Sem isto, a rotina
+    // que fecha o mês roda às 03h e não conta a ninguém o que fez — nem quando
+    // se RECUSA a fechar pela trava de completude, que é o caso em que alguém
+    // precisa agir. Um silêncio que significa "deu certo" e um silêncio que
+    // significa "adiei" são indistinguíveis.
+    if (action === "fechamento_concluido") {
+      const { resultado } = body;
+      const supabase = createClient(
+        Deno.env.get("SUPABASE_URL")!,
+        Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+      );
+
+      const { data: destinatarios } = await supabase.rpc("emails_gestao");
+      const emails = (destinatarios ?? []).map((d: { email: string }) => d.email).filter(Boolean);
+      if (!emails.length) return json({ ok: true, enviados: 0, motivo: "nenhum usuário de gestão ativo" });
+
+      const adiado = resultado?.adiado === true;
+      const falhou = resultado?.ok === false && !adiado;
+      const periodo = resultado?.periodo ?? "—";
+      const fmtBRL2 = (n: number) => Number(n ?? 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+
+      const linhaResumo = (rotulo: string, valor: string) => `
+        <tr><td style="padding:7px 0;border-top:1px solid #e6e9ef;color:#6b7280;font-size:13px;">${rotulo}</td>
+            <td style="padding:7px 0;border-top:1px solid #e6e9ef;color:#111827;font-size:13px;text-align:right;font-weight:bold;">${valor}</td></tr>`;
+
+      const corpo = adiado
+        ? `<h2 style="margin:0 0 8px;color:#a5721a;font-size:20px;">⏸ Fechamento de ${periodo} adiado</h2>
+           <p style="margin:0 0 18px;color:#374151;font-size:14px;line-height:1.55;">
+             A rotina não fechou o mês porque os dados do último dia parecem incompletos —
+             sinal de que a carga do Data Lake ainda não terminou. <strong>Nada foi gravado.</strong>
+             A tentativa se repete automaticamente amanhã.
+           </p>
+           <table width="100%" cellpadding="0" cellspacing="0">
+             ${linhaResumo("Transações no último dia", String(resultado?.ultimo_dia ?? "—"))}
+             ${linhaResumo("Média diária do mês", String(resultado?.media_diaria ?? "—"))}
+             ${linhaResumo("Proporção", `${resultado?.razao ?? "—"} (mínimo 0,4)`)}
+           </table>
+           <p style="margin:18px 0 0;color:#6b7280;font-size:12.5px;line-height:1.55;">
+             Se isso se repetir por três dias seguidos, o problema é da carga, não do fechamento — vale acionar a equipe de dados.
+           </p>`
+        : falhou
+        ? `<h2 style="margin:0 0 8px;color:#c0392b;font-size:20px;">✗ Fechamento de ${periodo} falhou</h2>
+           <p style="margin:0 0 18px;color:#374151;font-size:14px;line-height:1.55;">
+             A rotina não conseguiu concluir. <strong>Nenhuma comissão foi gerada</strong> e nada ficou pela metade.
+           </p>
+           <p style="margin:0;padding:12px 14px;background:#fdeaea;border-radius:8px;color:#7f1d1d;font-size:13px;font-family:monospace;">
+             ${String(resultado?.error ?? "erro não informado").slice(0, 300)}
+           </p>`
+        : `<h2 style="margin:0 0 8px;color:#111827;font-size:20px;">✓ Fechamento de ${periodo} concluído</h2>
+           <p style="margin:0 0 18px;color:#374151;font-size:14px;line-height:1.55;">
+             O cálculo do mês rodou e as comissões já estão disponíveis para os parceiros aprovarem.
+           </p>
+           <table width="100%" cellpadding="0" cellspacing="0">
+             ${linhaResumo("Clientes lidos", String(resultado?.clientes_lidos ?? "—"))}
+             ${linhaResumo("Comissões geradas", String(resultado?.comissoes ?? resultado?.linhas ?? "—"))}
+             ${linhaResumo("Parceiros com comissão", String(resultado?.parceiros ?? "—"))}
+             ${linhaResumo("Total calculado", fmtBRL2(resultado?.total ?? 0))}
+             ${linhaResumo("Validações criadas", String(resultado?.validacoes ?? "—"))}
+           </table>
+           <p style="margin:18px 0 0;color:#6b7280;font-size:12.5px;line-height:1.55;">
+             A partir daqui a bola está com os parceiros: enquanto não aprovarem, o pagamento não avança.
+             O lembrete diário cobra automaticamente.
+           </p>`;
+
+      const assunto = adiado
+        ? `eFleet · Fechamento de ${periodo} adiado — dados incompletos`
+        : falhou
+        ? `eFleet · Fechamento de ${periodo} FALHOU`
+        : `eFleet · Fechamento de ${periodo} concluído`;
+
+      const id = await enviarResend(resendKey, emails, assunto,
+        layout(`<tr><td style="padding:28px;">${corpo}
+          <div style="margin-top:26px;">${botao("Abrir o sistema")}</div></td></tr>`));
+
+      for (const e of emails) {
+        await registrarEmail(supabase, {
+          tipo: "fechamento_mensal", destinatario: e, assunto,
+          referencia: { periodo, adiado, falhou, resultado }, sucesso: true, provedor_id: id,
+        });
+      }
+
+      return json({ ok: true, enviados: emails.length, id });
+    }
+
     // ─── Gestão: relatório semanal de pendências (fechamento + aprovações) ───
     // Disparado pelo pg_cron (ver migration 20260813_relatorio_semanal_gestao.sql),
     // toda segunda 08h — mas pode ser chamado manualmente sem parâmetros.
@@ -350,6 +435,39 @@ serve(async (req) => {
         .order("status", { ascending: true })
         .order("criado_em", { ascending: true });
 
+      // Aprovadas que ninguém pagou. Faltava esta seção: o relatório cobria o
+      // que espera o PARCEIRO agir e o que espera CÁLCULO, mas não o que espera
+      // a gestão pagar — justamente a etapa em que o dinheiro fica parado
+      // depois de todo mundo já ter concordado.
+      const { data: aPagar } = await supabase
+        .from("validacoes_mensais")
+        .select("prestador_id, periodo_inicio, periodo_fim, aprovado_em, prestadores(nome)")
+        .eq("status", "aprovado")
+        .is("pago_em", null)
+        .order("aprovado_em", { ascending: true });
+
+      const { data: comsPagar } = await supabase
+        .from("comissoes")
+        .select("prestador_id, periodo_inicio, periodo_fim, comissao_bruta")
+        .eq("status", "calculada")
+        .in("prestador_id", [...new Set((aPagar ?? []).map((v: Record<string, unknown>) => v.prestador_id))]);
+
+      const valorPagar = new Map<string, number>();
+      for (const c of (comsPagar ?? []) as Array<Record<string, unknown>>) {
+        const k = `${c.prestador_id}|${c.periodo_inicio}|${c.periodo_fim}`;
+        valorPagar.set(k, (valorPagar.get(k) ?? 0) + Number(c.comissao_bruta ?? 0));
+      }
+      const valorDe = (v: Record<string, unknown>) =>
+        valorPagar.get(`${v.prestador_id}|${v.periodo_inicio}|${v.periodo_fim}`) ?? 0;
+      // Só o que tem valor a pagar. Sete das dez aprovadas em aberto valiam
+      // R$ 0,00 — listá-las é pedir à gestão que pague nada, o mesmo ruído que
+      // já tiramos da tela do parceiro e do lembrete. As zeradas viram um
+      // contador no rodapé: some do relatório, não da vista.
+      const aPagarComValor = (aPagar ?? []).filter(v => valorDe(v as Record<string, unknown>) > 0);
+      const aPagarZeradas = (aPagar ?? []).length - aPagarComValor.length;
+      const totalAPagar = aPagarComValor.reduce((t, v) => t + valorDe(v as Record<string, unknown>), 0);
+      const fmtBRL = (n: number) => n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+
       const fmtData = (d: string) => new Date(d + "T12:00:00").toLocaleDateString("pt-BR");
       const fmtPeriodo = (ini: string, fim: string) => `${fmtData(ini)} – ${fmtData(fim)}`;
       const diasDesde = (d: string) => Math.floor((Date.now() - new Date(d).getTime()) / 86400000);
@@ -387,6 +505,22 @@ serve(async (req) => {
              ${(validacoesPendentes as unknown as Parameters<typeof linhaValidacao>[0][]).map(linhaValidacao).join("")}
            </table>`;
 
+      const linhaPagar = (v: Record<string, unknown>) => `
+        <tr>
+          <td style="padding:8px 0;border-top:1px solid #e6e9ef;color:#111827;font-size:13px;">${(v.prestadores as { nome?: string } | null)?.nome ?? "—"}</td>
+          <td style="padding:8px 0;border-top:1px solid #e6e9ef;color:#6b7280;font-size:13px;">${fmtPeriodo(v.periodo_inicio as string, v.periodo_fim as string)}</td>
+          <td style="padding:8px 0;border-top:1px solid #e6e9ef;color:#111827;font-size:13px;text-align:right;font-weight:bold;">${fmtBRL(valorDe(v))}</td>
+          <td style="padding:8px 0;border-top:1px solid #e6e9ef;color:#6b7280;font-size:13px;text-align:right;">${v.aprovado_em ? diasDesde(v.aprovado_em as string) + "d" : "—"}</td>
+        </tr>`;
+
+      const secaoPagar = !aPagarComValor.length
+        ? `<p style="margin:0 0 24px;color:#6b7280;font-size:13px;">✓ Nada aprovado aguardando pagamento.</p>`
+        : `<table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:24px;">
+             <tr><th style="text-align:left;color:#6b7280;font-size:11px;text-transform:uppercase;padding-bottom:6px;">Parceiro</th><th style="text-align:left;color:#6b7280;font-size:11px;text-transform:uppercase;padding-bottom:6px;">Período</th><th style="text-align:right;color:#6b7280;font-size:11px;text-transform:uppercase;padding-bottom:6px;">Valor</th><th style="text-align:right;color:#6b7280;font-size:11px;text-transform:uppercase;padding-bottom:6px;">Aprovado há</th></tr>
+             ${aPagarComValor.map(v => linhaPagar(v as Record<string, unknown>)).join("")}
+             <tr><td colspan="2" style="padding:10px 0;border-top:2px solid #0b1929;color:#111827;font-size:13px;font-weight:bold;">Total</td><td style="padding:10px 0;border-top:2px solid #0b1929;color:#0b1929;font-size:15px;font-weight:bold;text-align:right;">${fmtBRL(totalAPagar)}</td><td style="border-top:2px solid #0b1929;"></td></tr>
+           </table>`;
+
       const hoje = new Date().toLocaleDateString("pt-BR");
       const html = layout(`<tr><td style="padding:28px;">
           <h2 style="margin:0 0 4px;color:#111827;font-size:20px;">Pendências da semana</h2>
@@ -398,10 +532,14 @@ serve(async (req) => {
           <h3 style="margin:0 0 10px;color:#111827;font-size:14px;">✅ Aprovações pendentes (${validacoesPendentes?.length ?? 0})</h3>
           ${secaoValidacoes}
 
+          <h3 style="margin:24px 0 10px;color:#111827;font-size:14px;">💰 Aprovadas aguardando pagamento (${aPagarComValor.length})</h3>
+          ${secaoPagar}
+          ${aPagarZeradas > 0 ? `<p style="margin:-14px 0 24px;color:#9aa3b2;font-size:12px;">${aPagarZeradas} aprovada(s) sem valor a pagar não ${aPagarZeradas === 1 ? "foi listada" : "foram listadas"}.</p>` : ""}
+
           <div style="margin-top:28px;">${botao("Abrir o sistema")}</div>
         </td></tr>`);
 
-      const totalPend = (fechamentosPendentes?.length ?? 0) + (validacoesPendentes?.length ?? 0);
+      const totalPend = (fechamentosPendentes?.length ?? 0) + (validacoesPendentes?.length ?? 0) + aPagarComValor.length;
       const id = await enviarResend(
         resendKey,
         emails,
@@ -420,12 +558,21 @@ serve(async (req) => {
           referencia: {
             fechamentos: fechamentosPendentes?.length ?? 0,
             validacoes: validacoesPendentes?.length ?? 0,
+            a_pagar: aPagarComValor.length,
+            total_a_pagar: totalAPagar,
+            a_pagar_zeradas: aPagarZeradas,
           },
           sucesso: true, provedor_id: id,
         });
       }
 
-      return json({ ok: true, enviados: emails.length, fechamentos: fechamentosPendentes?.length ?? 0, validacoes: validacoesPendentes?.length ?? 0, id });
+      return json({
+        ok: true, enviados: emails.length,
+        fechamentos: fechamentosPendentes?.length ?? 0,
+        validacoes: validacoesPendentes?.length ?? 0,
+        a_pagar: aPagarComValor.length, total_a_pagar: totalAPagar,
+        a_pagar_zeradas: aPagarZeradas, id,
+      });
     }
 
     return json({ ok: false, error: `Action inválida: ${action}` }, 400);

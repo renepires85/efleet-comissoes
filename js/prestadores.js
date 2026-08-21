@@ -4,6 +4,12 @@
 // busca perceptivelmente atrasada em relação ao que se está digitando.
 let prestadoresCache = [];
 
+// prestador_id -> último login. Vem por RPC porque `auth.users` não é
+// alcançável pelo cliente, e é a única fonte: `prestadores` e `usuarios` não
+// guardam nada sobre sessão. Serve para responder "quem nunca abriu o
+// sistema" sem ter que consultar o banco por fora.
+let ultimoAcessoCache = new Map();
+
 // Acento fora e caixa baixa dos dois lados: "vitoria" precisa achar "Vitória".
 // Foi um acento não normalizado que já custou a comissão de uma parceira aqui.
 const chaveBusca = (t) => (t ?? '').toString()
@@ -13,7 +19,30 @@ async function carregarPrestadores() {
   const { data } = await sb.from('prestadores').select('*').order('nome');
   if (!data) return;
   prestadoresCache = data;
+
+  const { data: acessos } = await sb.rpc('ultimo_acesso_prestadores');
+  ultimoAcessoCache = new Map((acessos || []).map(a => [a.prestador_id, a.ultimo_acesso]));
+
   renderPrestadores();
+}
+
+// "nunca entrou" e "não tem acesso" são coisas diferentes e a tela precisa
+// distinguir: a primeira cobra um empurrão na pessoa, a segunda cobra um
+// clique em "Enviar acesso".
+function celulaUltimoAcesso(p) {
+  if (!p.usuario_id) return '<span class="td-muted">sem acesso</span>';
+  const quando = ultimoAcessoCache.get(p.id);
+  if (!quando) return '<span class="badge badge-yellow">nunca entrou</span>';
+  // Dias de CALENDÁRIO, não horas decorridas. Contando por milissegundos, dois
+  // acessos do MESMO dia caem em rótulos diferentes só por causa da hora — o
+  // Eduardo (20/08 18h) aparecia como "hoje" e a Sabrina (20/08 14h) como
+  // "ontem", com a mesma data ao lado.
+  const meiaNoite = (d) => { const x = new Date(d); x.setHours(0, 0, 0, 0); return x; };
+  const dias = Math.round((meiaNoite(Date.now()) - meiaNoite(quando)) / 86400000);
+  const data = new Date(quando).toLocaleDateString('pt-BR');
+  const cor  = dias > 60 ? 'var(--efl-orange)' : 'var(--efl-gray-300)';
+  return `<span style="color:${cor};">${data}</span>` +
+         `<div class="td-codigo">${dias === 0 ? 'hoje' : dias === 1 ? 'ontem' : `há ${dias} dias`}</div>`;
 }
 
 function renderPrestadores() {
@@ -49,7 +78,7 @@ function renderPrestadores() {
 
   if (!data.length) {
     document.getElementById('tbody-prestadores').innerHTML =
-      `<tr><td colspan="8" class="loading">Nenhum parceiro encontrado com esses filtros.</td></tr>`;
+      `<tr><td colspan="9" class="loading">Nenhum parceiro encontrado com esses filtros.</td></tr>`;
     return;
   }
 
@@ -68,6 +97,7 @@ function renderPrestadores() {
     <td class="td-muted">${p.email}</td>
     <td class="td-muted">${p.banco || '—'}</td>
     <td class="td-muted">${p.pix || '—'}</td>
+    <td class="td-muted">${celulaUltimoAcesso(p)}</td>
     <td><span class="badge ${p.ativo ? 'badge-green' : 'badge-yellow'}">${p.ativo ? 'Ativo' : 'Inativo'}</span></td>
     <td style="white-space:nowrap;">
       <button class="btn btn-ghost btn-sm" onclick="abrirModalPrestador('${p.id}')">Editar</button>

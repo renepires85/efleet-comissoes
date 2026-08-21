@@ -324,17 +324,18 @@ async function confirmarAcoesLote() {
     // valor que não existe. No lote o estrago é maior — um clique alcança
     // todos de uma vez.
     const { data: coms } = await sb.from('comissoes')
-      .select('prestador_id,periodo_inicio,comissao_bruta')
+      .select('prestador_id,periodo_inicio,periodo_fim,comissao_bruta')
       .eq('status', 'calculada')
       .in('prestador_id', [...new Set((vals || []).map(v => v.prestador_id))]);
 
     const valorPor = new Map();
     (coms || []).forEach(c => {
-      const k = `${c.prestador_id}|${c.periodo_inicio}`;
+      const k = `${c.prestador_id}|${c.periodo_inicio}|${c.periodo_fim}`;
       valorPor.set(k, (valorPor.get(k) || 0) + Number(c.comissao_bruta || 0));
     });
 
-    const comValor = (vals || []).filter(v => (valorPor.get(`${v.prestador_id}|${v.periodo_inicio}`) || 0) > 0);
+    const comValor = (vals || []).filter(
+      v => (valorPor.get(`${v.prestador_id}|${v.periodo_inicio}|${v.periodo_fim}`) || 0) > 0);
     const semValor = (vals || []).length - comValor.length;
 
     let ok = 0, err = 0, semEmail = 0;

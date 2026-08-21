@@ -70,6 +70,7 @@ async function notificarParceiroValidacao(validacaoId) {
     .select('comissao_bruta')
     .eq('prestador_id', v.prestador_id)
     .eq('periodo_inicio', v.periodo_inicio)
+    .eq('periodo_fim', v.periodo_fim)
     .eq('status', 'calculada');
 
   const total = (coms || []).reduce((s, c) => s + Number(c.comissao_bruta || 0), 0);

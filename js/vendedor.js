@@ -39,19 +39,25 @@ async function carregarPendencias(pid) {
   // (criar_validacoes_pendentes só nasce com valor > 0), mas ela não alcança
   // linha que já está na base — por exclusão de arquivo, recálculo ou correção
   // manual. Conferir na leitura é o que torna o sintoma impossível.
+  // A chave do período é INÍCIO + FIM, nunca só o início. A Edite tem duas
+  // validações que começam em 30/04 e terminam em datas diferentes, cada uma
+  // com a sua comissão (R$ 17,85 e R$ 257,84). Casando só pelo início, as duas
+  // recebem a soma das duas — o valor mostrado fica errado, e uma pendência
+  // zerada herdaria o valor da vizinha e passaria pela trava.
   const { data: coms } = await sb.from('comissoes')
-    .select('periodo_inicio,comissao_bruta,status')
+    .select('periodo_inicio,periodo_fim,comissao_bruta,status')
     .eq('prestador_id', pid)
     .eq('status', 'calculada')
     .in('periodo_inicio', pendentes.map(v => v.periodo_inicio));
 
   const valorPorPeriodo = new Map();
   (coms || []).forEach(c => {
-    valorPorPeriodo.set(c.periodo_inicio,
-      (valorPorPeriodo.get(c.periodo_inicio) || 0) + Number(c.comissao_bruta || 0));
+    const k = `${c.periodo_inicio}|${c.periodo_fim}`;
+    valorPorPeriodo.set(k, (valorPorPeriodo.get(k) || 0) + Number(c.comissao_bruta || 0));
   });
 
-  const data = pendentes.filter(v => (valorPorPeriodo.get(v.periodo_inicio) || 0) > 0);
+  const data = pendentes.filter(
+    v => (valorPorPeriodo.get(`${v.periodo_inicio}|${v.periodo_fim}`) || 0) > 0);
   if (!data.length) { alvo.innerHTML = ''; return; }
 
   const hojeIni = new Date(); hojeIni.setDate(1);

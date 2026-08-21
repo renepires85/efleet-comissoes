@@ -230,18 +230,18 @@ serve(async (req) => {
       const ids = [...new Set((pendentes as unknown as PendenteRow[]).map(v => v.prestadores?.id).filter(Boolean))];
       const { data: comissoes } = await supabase
         .from("comissoes")
-        .select("prestador_id, periodo_inicio, comissao_bruta")
+        .select("prestador_id, periodo_inicio, periodo_fim, comissao_bruta")
         .eq("status", "calculada")
         .in("prestador_id", ids as string[]);
 
       const valorPor = new Map<string, number>();
       for (const c of (comissoes ?? []) as Array<Record<string, unknown>>) {
-        const k = `${c.prestador_id}|${c.periodo_inicio}`;
+        const k = `${c.prestador_id}|${c.periodo_inicio}|${c.periodo_fim}`;
         valorPor.set(k, (valorPor.get(k) ?? 0) + Number(c.comissao_bruta ?? 0));
       }
 
       const comValor = (pendentes as unknown as PendenteRow[]).filter(
-        v => (valorPor.get(`${v.prestadores?.id}|${v.periodo_inicio}`) ?? 0) > 0,
+        v => (valorPor.get(`${v.prestadores?.id}|${v.periodo_inicio}|${v.periodo_fim}`) ?? 0) > 0,
       );
       // `ignoradas` volta na resposta de propósito: linha pendente sem valor é
       // anomalia, e some sem deixar rastro se ninguém contar.
@@ -264,6 +264,21 @@ serve(async (req) => {
         atual.periodos.push(mes);
         if (v.criado_em < atual.desde) atual.desde = v.criado_em;
         porParceiro.set(p.id, atual);
+      }
+
+      // Modo simulação: devolve quem RECEBERIA sem enviar nada.
+      //
+      // Existe porque testar este cron custava caro: cada verificação mandava
+      // e-mail de verdade, e a Edite e a Luana receberam o mesmo lembrete três
+      // vezes num dia só por causa dos meus testes. Verificar o comportamento
+      // não pode ter como preço incomodar quem está do outro lado.
+      if (body?.simular) {
+        return json({
+          ok: true, simulacao: true, ignoradas,
+          enviaria: [...porParceiro.values()].map(p => ({
+            nome: p.nome, email: p.email, periodos: p.periodos,
+          })),
+        });
       }
 
       let enviados = 0, semEmail = 0;

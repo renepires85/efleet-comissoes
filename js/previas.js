@@ -16,11 +16,20 @@ async function carregarPrevias() {
   const alvo = document.getElementById('tbody-previas');
   if (!alvo) return;
 
-  // Sem filtro de período: a tabela guarda só o mês corrente, reescrita a cada
-  // carga diária. Filtrar por data aqui só criaria uma forma de a tela mentir
-  // se o cron atrasar.
+  // Filtra pelo mês corrente explicitamente.
+  //
+  // Havia aqui um comentário afirmando que "a tabela guarda só o mês corrente" —
+  // era suposição, não garantia. A limpeza da carga diária apagava apenas o
+  // período que ia regravar, então na virada de 31/08 para 01/09 a tabela ficou
+  // com os dois meses e esta tela somou agosto com setembro, apresentando o
+  // resultado como prévia do mês. A limpeza foi corrigida; este filtro existe
+  // para o caso de ela falhar de novo.
+  const mesCorrente = new Date();
+  const ini = `${mesCorrente.getFullYear()}-${String(mesCorrente.getMonth() + 1).padStart(2, '0')}-01`;
+
   const { data, error } = await sb.from('previa_comissoes')
     .select('*, prestadores(nome, tipo_parceiro, ativo)')
+    .eq('periodo_inicio', ini)
     .order('comissao_prevista', { ascending: false });
 
   if (error) {
@@ -131,19 +140,30 @@ function togglePrevia(id) {
 // Quando a prévia foi atualizada pela última vez. Importante deixar à vista:
 // se o cron falhar, a tela continuaria mostrando números plausíveis de ontem
 // sem nenhum sinal de que pararam no tempo.
+const diasEmTexto = (d) => d <= 1 ? 'há 1 dia' : `há ${d} dias`;
+
 async function carregarCarimboPrevia() {
   const el = document.getElementById('pv-atualizado');
   if (!el) return;
+  const agora = new Date();
+  const ini = `${agora.getFullYear()}-${String(agora.getMonth() + 1).padStart(2, '0')}-01`;
   const { data } = await sb.from('previa_comissoes')
     .select('atualizado_em, periodo_inicio')
+    .eq('periodo_inicio', ini)
     .order('atualizado_em', { ascending: false }).limit(1);
 
-  if (!data?.length) { el.textContent = 'sem dados de prévia'; return; }
+  // Sem linha do mês corrente, o carimbo diz isso em vez de mostrar a data de
+  // um mês antigo como se fosse a atual.
+  if (!data?.length) {
+    const mes = new Date(ini + 'T12:00:00').toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+    el.textContent = `${mes} · ainda sem prévia calculada`;
+    return;
+  }
 
   const quando = new Date(data[0].atualizado_em);
   const horas = Math.floor((Date.now() - quando) / 3600000);
   const mes = new Date(data[0].periodo_inicio + 'T12:00:00')
     .toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
   el.innerHTML = `${mes} · atualizado ${quando.toLocaleString('pt-BR')}` +
-    (horas > 30 ? ` <span style="color:var(--efl-orange);">— há ${Math.floor(horas / 24)} dias, a carga diária pode ter parado</span>` : '');
+    (horas > 30 ? ` <span style="color:var(--efl-orange);">— ${diasEmTexto(Math.floor(horas / 24))}, a carga diária pode ter parado</span>` : '');
 }

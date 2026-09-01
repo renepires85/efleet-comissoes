@@ -2,11 +2,15 @@
 // anterior e entrega ao Postgres, que grava e calcula em
 // executar_fechamento_mensal(). Nenhuma regra de comissão vive aqui.
 //
-// Agendada para o dia 03 às 03h (BRT) — ver 20260814_fechamento_mensal_cron.sql.
-// O dia 03 não é arbitrário: medimos que o Data Lake só carrega os dados de um
-// dia DEPOIS que ele acaba (às 13h de um dia útil, o próprio dia tinha 3% do
-// volume típico). Fechar no dia 01 pegaria o último dia do mês vazio e pagaria
-// a menos a todos os parceiros, sem nenhum sinal de erro.
+// Agendada para o dia 02 às 03h (BRT), com retentativa nos dias 3 a 5 — ver
+// 20260901_fechamento_dia_02.sql.
+//
+// A data não é arbitrária: o Data Lake só carrega os dados de um dia DEPOIS que
+// ele acaba (às 13h de um dia útil, o próprio dia tinha 3% do volume típico).
+// Fechar no dia 01 pegaria o último dia do mês vazio e pagaria a menos a todos
+// os parceiros, sem nenhum sinal de erro. Medição de 01/09/2026: o dia 31/08
+// já estava com 118% da média diária, ou seja completo, enquanto o dia corrente
+// aparecia com 6% — daí a folga para antecipar do dia 3 para o dia 2.
 //
 // TRAVA DE COMPLETUDE: como o resultado vai direto aos parceiros, sem revisão
 // humana, a função se recusa a fechar se o último dia do mês tiver volume muito

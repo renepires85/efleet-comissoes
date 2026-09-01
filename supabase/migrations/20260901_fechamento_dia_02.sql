@@ -1,0 +1,20 @@
+-- O fechamento passa do dia 3 para o dia 2.
+--
+-- O dia 3 foi escolhido em 08/2026 por medição: o Data Lake só carrega os dados
+-- de um dia DEPOIS que ele termina, e às 13h de um dia útil o próprio dia tinha
+-- 3% do volume típico. Fechar cedo demais pegaria o último dia do mês vazio e
+-- pagaria a menos a todos os parceiros, sem nenhum sinal de erro.
+--
+-- Nova medição, feita em 01/09/2026 com o mês de agosto já encerrado:
+--
+--   31/08 (último dia do mês) ... 786 transações = 118% da média diária
+--   01/09 (dia corrente) .........  40 transações =   6% da média
+--
+-- Ou seja: o último dia do mês já está COMPLETO no dia 1º, e o dia corrente
+-- confirma o comportamento parcial que motivou a espera. No dia 2 às 03h, o
+-- fechamento encontra o mês inteiro carregado há mais de 24 horas.
+--
+-- A trava de completude continua valendo, e os dias 3, 4 e 5 seguem como
+-- retentativa: se num mês a carga atrasar, o fechamento adia sozinho em vez de
+-- fechar errado. Antecipar o dia não afrouxou nenhuma verificação — só
+-- aproveitou a folga que a medição mostrou existir.

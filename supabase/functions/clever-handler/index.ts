@@ -224,6 +224,32 @@ serve(async (req) => {
       const periodo = resultado?.periodo ?? "—";
       const fmtBRL2 = (n: number) => Number(n ?? 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
+      // Parceiros e total NÃO vêm no retorno de executar_fechamento_mensal —
+      // ela devolve contagens de linhas, não o resultado financeiro. Buscamos
+      // aqui, no fechamento recém-gravado.
+      //
+      // O primeiro fechamento real (agosto, em 02/09) chegou com "—" em três
+      // campos e R$ 0,00 no total porque eu li nomes que não existem:
+      // `comissoes`, `parceiros`, `total` e `validacoes`, quando a função
+      // devolve `comissoes_geradas`, `linhas_fechamento` e `validacoes_criadas`.
+      // O cálculo estava certo o tempo todo; o aviso é que mentia.
+      let parceirosComValor = 0, totalCalculado = 0, suspensas = 0;
+      if (!adiado && !falhou && typeof periodo === "string" && /^\d{4}-\d{2}$/.test(periodo)) {
+        const { data: linhas } = await supabase
+          .from("comissoes")
+          .select("prestador_id, comissao_bruta, status")
+          .eq("periodo_inicio", `${periodo}-01`);
+        const ids = new Set<string>();
+        for (const c of (linhas ?? []) as Array<Record<string, unknown>>) {
+          if (c.status === "calculada") {
+            totalCalculado += Number(c.comissao_bruta ?? 0);
+            if (Number(c.comissao_bruta ?? 0) > 0) ids.add(String(c.prestador_id));
+          }
+          if (c.status === "suspensa") suspensas++;
+        }
+        parceirosComValor = ids.size;
+      }
+
       const linhaResumo = (rotulo: string, valor: string) => `
         <tr><td style="padding:7px 0;border-top:1px solid #e6e9ef;color:#6b7280;font-size:13px;">${rotulo}</td>
             <td style="padding:7px 0;border-top:1px solid #e6e9ef;color:#111827;font-size:13px;text-align:right;font-weight:bold;">${valor}</td></tr>`;
@@ -257,10 +283,12 @@ serve(async (req) => {
            </p>
            <table width="100%" cellpadding="0" cellspacing="0">
              ${linhaResumo("Clientes lidos", String(resultado?.clientes_lidos ?? "—"))}
-             ${linhaResumo("Comissões geradas", String(resultado?.comissoes ?? resultado?.linhas ?? "—"))}
-             ${linhaResumo("Parceiros com comissão", String(resultado?.parceiros ?? "—"))}
-             ${linhaResumo("Total calculado", fmtBRL2(resultado?.total ?? 0))}
-             ${linhaResumo("Validações criadas", String(resultado?.validacoes ?? "—"))}
+             ${linhaResumo("Linhas do fechamento", String(resultado?.linhas_fechamento ?? "—"))}
+             ${linhaResumo("Comissões geradas", String(resultado?.comissoes_geradas ?? "—"))}
+             ${linhaResumo("Parceiros com valor a receber", String(parceirosComValor))}
+             ${linhaResumo("Total calculado", fmtBRL2(totalCalculado))}
+             ${suspensas > 0 ? linhaResumo("Suspensas por inadimplência", String(suspensas)) : ""}
+             ${linhaResumo("Validações criadas", String(resultado?.validacoes_criadas ?? "—"))}
            </table>
            <p style="margin:18px 0 0;color:#6b7280;font-size:12.5px;line-height:1.55;">
              A partir daqui a bola está com os parceiros: enquanto não aprovarem, o pagamento não avança.
@@ -273,8 +301,22 @@ serve(async (req) => {
         ? `eFleet · Fechamento de ${periodo} FALHOU`
         : `eFleet · Fechamento de ${periodo} concluído`;
 
+      // A simulação devolve os NÚMEROS, não só o assunto: foi lendo campo
+      // errado que o primeiro fechamento real avisou "concluído" com traços e
+      // R$ 0,00. Simulação que não mostra o conteúdo não teria pego isso.
       if (body?.simular) {
-        return json({ ok: true, simulacao: true, destinatarios: emails, assunto, adiado, falhou });
+        return json({
+          ok: true, simulacao: true, destinatarios: emails, assunto, adiado, falhou,
+          diria: {
+            clientes_lidos: resultado?.clientes_lidos ?? null,
+            linhas_fechamento: resultado?.linhas_fechamento ?? null,
+            comissoes_geradas: resultado?.comissoes_geradas ?? null,
+            parceiros_com_valor: parceirosComValor,
+            total_calculado: totalCalculado,
+            suspensas,
+            validacoes_criadas: resultado?.validacoes_criadas ?? null,
+          },
+        });
       }
 
       const id = await enviarResend(resendKey, emails, assunto,

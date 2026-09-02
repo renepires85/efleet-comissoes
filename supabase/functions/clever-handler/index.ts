@@ -206,7 +206,13 @@ serve(async (req) => {
       );
 
       const { data: destinatarios } = await supabase.rpc("emails_gestao");
-      const emails = (destinatarios ?? []).map((d: { email: string }) => d.email).filter(Boolean);
+      // `so_para` manda para um endereço só, sem alterar mais nada. É o caminho
+      // do meio entre simular (que não mostra o e-mail de verdade) e disparar
+      // para o grupo inteiro — serve para conferir o conteúdo com olhos humanos
+      // antes de atingir todo mundo.
+      const emails = body?.so_para
+        ? [String(body.so_para)]
+        : (destinatarios ?? []).map((d: { email: string }) => d.email).filter(Boolean);
       if (!emails.length) return json({ ok: true, enviados: 0, motivo: "nenhum usuário de gestão ativo" });
 
       // O cron roda nos dias 3, 4 e 5 — os dois últimos existem como retentativa
@@ -233,21 +239,45 @@ serve(async (req) => {
       // `comissoes`, `parceiros`, `total` e `validacoes`, quando a função
       // devolve `comissoes_geradas`, `linhas_fechamento` e `validacoes_criadas`.
       // O cálculo estava certo o tempo todo; o aviso é que mentia.
+      // Separa ATIVO de INATIVO. Parceiro inativo entra no cálculo e some das
+      // somas do sistema — regra antiga e deliberada. O aviso não seguia essa
+      // regra, então anunciava R$ 1.132,34 enquanto o painel mostrava
+      // R$ 969,67: a diferença eram R$ 162,67 de dois parceiros inativos, que
+      // não serão pagos. Dois números certos medindo coisas diferentes, e quem
+      // lê compara.
       let parceirosComValor = 0, totalCalculado = 0, suspensas = 0;
+      let totalInativos = 0, parceirosInativos = 0;
+      let validacoesAtivos = 0, validacoesInativos = 0;
+
       if (!adiado && !falhou && typeof periodo === "string" && /^\d{4}-\d{2}$/.test(periodo)) {
+        const inicio = `${periodo}-01`;
+
         const { data: linhas } = await supabase
           .from("comissoes")
-          .select("prestador_id, comissao_bruta, status")
-          .eq("periodo_inicio", `${periodo}-01`);
-        const ids = new Set<string>();
+          .select("prestador_id, comissao_bruta, status, prestadores!inner(ativo)")
+          .eq("periodo_inicio", inicio);
+
+        const ativos = new Set<string>(), inativos = new Set<string>();
         for (const c of (linhas ?? []) as Array<Record<string, unknown>>) {
+          const vivo = (c.prestadores as { ativo?: boolean } | null)?.ativo !== false;
+          const v = Number(c.comissao_bruta ?? 0);
           if (c.status === "calculada") {
-            totalCalculado += Number(c.comissao_bruta ?? 0);
-            if (Number(c.comissao_bruta ?? 0) > 0) ids.add(String(c.prestador_id));
+            if (vivo) { totalCalculado += v; if (v > 0) ativos.add(String(c.prestador_id)); }
+            else      { totalInativos  += v; if (v > 0) inativos.add(String(c.prestador_id)); }
           }
-          if (c.status === "suspensa") suspensas++;
+          if (c.status === "suspensa" && vivo) suspensas++;
         }
-        parceirosComValor = ids.size;
+        parceirosComValor = ativos.size;
+        parceirosInativos = inativos.size;
+
+        const { data: vals } = await supabase
+          .from("validacoes_mensais")
+          .select("id, prestadores!inner(ativo)")
+          .eq("periodo_inicio", inicio);
+        for (const v of (vals ?? []) as Array<Record<string, unknown>>) {
+          if ((v.prestadores as { ativo?: boolean } | null)?.ativo !== false) validacoesAtivos++;
+          else validacoesInativos++;
+        }
       }
 
       const linhaResumo = (rotulo: string, valor: string) => `
@@ -286,10 +316,17 @@ serve(async (req) => {
              ${linhaResumo("Linhas do fechamento", String(resultado?.linhas_fechamento ?? "—"))}
              ${linhaResumo("Comissões geradas", String(resultado?.comissoes_geradas ?? "—"))}
              ${linhaResumo("Parceiros com valor a receber", String(parceirosComValor))}
-             ${linhaResumo("Total calculado", fmtBRL2(totalCalculado))}
+             ${linhaResumo("<strong>Total a pagar</strong>", `<span style="font-size:15px;">${fmtBRL2(totalCalculado)}</span>`)}
              ${suspensas > 0 ? linhaResumo("Suspensas por inadimplência", String(suspensas)) : ""}
-             ${linhaResumo("Validações criadas", String(resultado?.validacoes_criadas ?? "—"))}
+             ${linhaResumo("Validações aguardando aprovação", String(validacoesAtivos))}
            </table>
+           ${totalInativos > 0 ? `
+           <p style="margin:16px 0 0;padding:12px 14px;background:#f5f7fa;border-radius:8px;color:#6b7280;font-size:12.5px;line-height:1.55;">
+             Fora do total: <strong style="color:#111827;">${fmtBRL2(totalInativos)}</strong> de
+             ${parceirosInativos} parceiro(s) <strong>inativo(s)</strong>${validacoesInativos > 0 ? `, com ${validacoesInativos} validação(ões) que ninguém pode aprovar` : ""}.
+             Comissão de parceiro inativo é calculada e registrada, mas não entra nas somas nem é paga.
+             Se algum deles deveria estar ativo, é agora que dá para corrigir.
+           </p>` : ""}
            <p style="margin:18px 0 0;color:#6b7280;font-size:12.5px;line-height:1.55;">
              A partir daqui a bola está com os parceiros: enquanto não aprovarem, o pagamento não avança.
              O lembrete diário cobra automaticamente.
@@ -312,7 +349,11 @@ serve(async (req) => {
             linhas_fechamento: resultado?.linhas_fechamento ?? null,
             comissoes_geradas: resultado?.comissoes_geradas ?? null,
             parceiros_com_valor: parceirosComValor,
-            total_calculado: totalCalculado,
+            total_a_pagar: totalCalculado,
+            total_de_inativos: totalInativos,
+            parceiros_inativos: parceirosInativos,
+            validacoes_aguardando: validacoesAtivos,
+            validacoes_de_inativos: validacoesInativos,
             suspensas,
             validacoes_criadas: resultado?.validacoes_criadas ?? null,
           },
@@ -473,7 +514,13 @@ serve(async (req) => {
       );
 
       const { data: destinatarios } = await supabase.rpc("emails_gestao");
-      const emails = (destinatarios ?? []).map((d: { email: string }) => d.email).filter(Boolean);
+      // `so_para` manda para um endereço só, sem alterar mais nada. É o caminho
+      // do meio entre simular (que não mostra o e-mail de verdade) e disparar
+      // para o grupo inteiro — serve para conferir o conteúdo com olhos humanos
+      // antes de atingir todo mundo.
+      const emails = body?.so_para
+        ? [String(body.so_para)]
+        : (destinatarios ?? []).map((d: { email: string }) => d.email).filter(Boolean);
       if (!emails.length) {
         return json({ ok: true, enviados: 0, motivo: "nenhum usuário com perfil gestao ativo" });
       }
